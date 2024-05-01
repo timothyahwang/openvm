@@ -6,5 +6,5 @@ pub mod chip;
 /// Helper types associated to generic STARK config.
 pub mod config;
 pub mod interaction;
+/// Prover implementation for partitioned multi-matrix AIRs.
 pub mod prover;
-pub mod util;

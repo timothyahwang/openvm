@@ -1,14 +1,17 @@
 use itertools::Itertools;
 use p3_challenger::{CanObserve, FieldChallenger};
 use p3_maybe_rayon::prelude::*;
-use p3_uni_stark::{get_log_quotient_degree, Domain, StarkGenericConfig, Val};
+use p3_uni_stark::{Domain, StarkGenericConfig, Val};
 
-use crate::config::{Com, OpeningProof, PcsProverData};
+use crate::{
+    air_builders::symbolic::get_log_quotient_degree,
+    config::{Com, PcsProof, PcsProverData},
+};
 
 use self::{
     committer::quotient::QuotientCommitter,
     opener::OpeningProver,
-    types::{ProvenDataBeforeOpening, ProvenMultiMatrixAirTrace},
+    types::{Commitments, PartitionedProof, ProvenDataBeforeOpening, ProvenMultiMatrixAirTrace},
 };
 
 pub mod committer;
@@ -22,20 +25,27 @@ pub struct PartitionProver<SC: StarkGenericConfig> {
 }
 
 impl<SC: StarkGenericConfig> PartitionProver<SC> {
+    pub fn new(config: SC) -> Self {
+        Self { config }
+    }
+
     /// Assumes the traces have been generated already.
+    ///
+    /// Public values is a global list shared across all AIRs in the partition.
     pub fn prove<'a>(
         &self,
         challenger: &mut SC::Challenger,
         // TODO: proving key,
         partition: Vec<ProvenMultiMatrixAirTrace<'a, SC>>,
-        public_values: Vec<Vec<Val<SC>>>,
-    ) where
+        public_values: &'a [Val<SC>],
+    ) -> PartitionedProof<SC>
+    where
         SC::Pcs: Sync,
         Domain<SC>: Send + Sync,
         PcsProverData<SC>: Send + Sync,
         Com<SC>: Send + Sync,
         SC::Challenge: Send + Sync,
-        OpeningProof<SC>: Send + Sync,
+        PcsProof<SC>: Send + Sync,
     {
         let pcs = self.config.pcs();
 
@@ -54,13 +64,12 @@ impl<SC: StarkGenericConfig> PartitionProver<SC> {
         let quotient_committer = QuotientCommitter::new(pcs, alpha);
         let quotient_data = partition
             .par_iter()
-            .zip(public_values.par_iter())
-            .map(|(part, public_values)| {
+            .map(|part| {
                 let quotient_degrees = part
                     .airs
                     .iter()
                     .map(|&air| {
-                        let d = get_log_quotient_degree::<Val<SC>, _>(air, public_values.len());
+                        let d = get_log_quotient_degree::<Val<SC>, _>(air, 0, public_values.len());
                         1 << d
                     })
                     .collect_vec();
@@ -86,14 +95,26 @@ impl<SC: StarkGenericConfig> PartitionProver<SC> {
                 quotient,
             })
             .collect::<Vec<_>>();
+        let commitments = proven_partitions
+            .iter()
+            .map(|part| Commitments {
+                main_trace: part.trace.commit.clone(),
+                quotient: part.quotient.commit.clone(),
+            })
+            .collect::<Vec<_>>();
 
         // Draw `zeta` challenge
         let zeta: SC::Challenge = challenger.sample_ext_element();
 
         let opener = OpeningProver::new(pcs, zeta);
-        let opening_data = proven_partitions
+        let opening_proofs = proven_partitions
             .into_par_iter()
             .map(|part| opener.open(challenger, part))
             .collect::<Vec<_>>();
+
+        PartitionedProof {
+            commitments,
+            opening_proofs,
+        }
     }
 }

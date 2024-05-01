@@ -13,12 +13,12 @@ pub type PcsProverData<SC> = <<SC as StarkGenericConfig>::Pcs as Pcs<
     <SC as StarkGenericConfig>::Challenger,
 >>::ProverData;
 
-pub type OpeningProof<SC> = <<SC as StarkGenericConfig>::Pcs as Pcs<
+pub type PcsProof<SC> = <<SC as StarkGenericConfig>::Pcs as Pcs<
     <SC as StarkGenericConfig>::Challenge,
     <SC as StarkGenericConfig>::Challenger,
 >>::Proof;
 
-pub type OpeningError<SC> = <<SC as StarkGenericConfig>::Pcs as Pcs<
+pub type PcsError<SC> = <<SC as StarkGenericConfig>::Pcs as Pcs<
     <SC as StarkGenericConfig>::Challenge,
     <SC as StarkGenericConfig>::Challenger,
 >>::Error;

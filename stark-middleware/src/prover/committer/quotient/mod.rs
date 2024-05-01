@@ -12,6 +12,7 @@ use p3_matrix::{
 use p3_maybe_rayon::prelude::*;
 use p3_uni_stark::{Domain, PackedChallenge, PackedVal, StarkGenericConfig, Val};
 use p3_util::log2_strict_usize;
+use tracing::{info_span, instrument};
 
 use crate::{
     air_builders::prover::ProverConstraintFolder,
@@ -37,11 +38,12 @@ impl<'pcs, SC: StarkGenericConfig> QuotientCommitter<'pcs, SC> {
     ///   It is the factor to **multiply** the trace degree by to get the degree
     ///   of the quotient polynomial. This should be determined from the constraint degree
     ///   of the AIR.
+    #[instrument(name = "compute quotient values", skip_all)]
     pub fn compute_quotient_values<'a>(
         &self,
         proven: ProvenMultiMatrixAirTrace<'a, SC>,
         quotient_degrees: Vec<usize>,
-        public_values: &'a [Val<SC>], // TODO: are public values shared across AIRs?
+        public_values: &'a [Val<SC>],
     ) -> MultiMatrixAirQuotientData<SC>
     where
         Domain<SC>: Send + Sync,
@@ -83,6 +85,7 @@ impl<'pcs, SC: StarkGenericConfig> QuotientCommitter<'pcs, SC> {
     }
 
     // TODO: not sure this is the right function signature
+    #[instrument(name = "commit to quotient poly chunks", skip_all)]
     pub fn commit(&self, data: MultiMatrixAirQuotientData<SC>) -> ProverQuotientData<SC> {
         let quotient_degrees = data.inner.iter().map(|d| d.quotient_degree).collect();
         let quotient_domains_and_chunks = data
@@ -158,6 +161,7 @@ pub struct QuotientChunk<SC: StarkGenericConfig> {
 
 // Starting reference: p3_uni_stark::prover::quotient_values
 /// Computes evaluation of DEEP quotient polynomial on the quotient domain for a single AIR (single trace matrix).
+#[instrument(name = "compute single AIR quotient polynomial", skip_all)]
 fn compute_single_air_quotient_values<'a, SC, A, Mat>(
     air: &'a A,
     // cumulative_sum: SC::Challenge,

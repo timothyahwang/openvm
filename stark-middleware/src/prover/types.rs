@@ -1,10 +1,11 @@
 use p3_air::Air;
 use p3_matrix::dense::RowMajorMatrix;
-use p3_uni_stark::{Domain, StarkGenericConfig, SymbolicAirBuilder, Val};
+use p3_uni_stark::{Domain, StarkGenericConfig, Val};
+use serde::{Deserialize, Serialize};
 
 use crate::{
-    air_builders::prover::ProverConstraintFolder,
-    config::{Com, OpeningProof, PcsProverData},
+    air_builders::{prover::ProverConstraintFolder, symbolic::SymbolicAirBuilder},
+    config::{Com, PcsProof, PcsProverData},
 };
 
 use super::opener::OpenedValues;
@@ -72,11 +73,25 @@ pub struct ProvenDataBeforeOpening<'a, SC: StarkGenericConfig> {
 }
 
 pub struct OpeningProofData<SC: StarkGenericConfig> {
-    pub proof: OpeningProof<SC>,
+    pub proof: PcsProof<SC>,
     pub values: OpenedValues<SC::Challenge>,
 }
 
-trait ProverAir<SC: StarkGenericConfig>:
+#[derive(Serialize, Deserialize)]
+pub struct Commitments<Com> {
+    pub main_trace: Com,
+    // pub perm_trace: Com,
+    pub quotient: Com,
+}
+
+pub struct PartitionedProof<SC: StarkGenericConfig> {
+    /// Commitments separated by partition
+    // TODO: I think quotient commitment should be shared
+    pub commitments: Vec<Commitments<Com<SC>>>,
+    pub opening_proofs: Vec<OpeningProofData<SC>>,
+}
+
+pub trait ProverAir<SC: StarkGenericConfig>:
     for<'a> Air<ProverConstraintFolder<'a, SC>> + Air<SymbolicAirBuilder<Val<SC>>>
 {
 }

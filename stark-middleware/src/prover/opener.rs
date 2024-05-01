@@ -15,10 +15,10 @@ impl<'pcs, SC: StarkGenericConfig> OpeningProver<'pcs, SC> {
         Self { pcs, zeta }
     }
 
-    pub fn open<'a>(
+    pub fn open(
         &self,
         challenger: &mut SC::Challenger,
-        data: ProvenDataBeforeOpening<'a, SC>,
+        data: ProvenDataBeforeOpening<SC>,
     ) -> OpeningProofData<SC> {
         let zeta = self.zeta;
         let trace_data = &data.trace.data;
@@ -55,7 +55,7 @@ impl<'pcs, SC: StarkGenericConfig> OpeningProver<'pcs, SC> {
         });
 
         // Unflatten quotient openings
-        let quotient_openings = quotient_degrees.into_iter().map(|&chunk_size| {
+        let quotient_openings = quotient_degrees.iter().map(|&chunk_size| {
             quotient_openings
                 .drain(..chunk_size)
                 .map(|mut op| {
