@@ -2,6 +2,7 @@ use itertools::Itertools;
 use p3_challenger::{CanObserve, FieldChallenger};
 use p3_maybe_rayon::prelude::*;
 use p3_uni_stark::{Domain, StarkGenericConfig, Val};
+use tracing::instrument;
 
 use crate::{
     air_builders::symbolic::get_log_quotient_degree,
@@ -21,7 +22,7 @@ pub mod types;
 /// Proves a partition of multi-matrix AIRs.
 // TODO: Interactions between parts in partition.
 pub struct PartitionProver<SC: StarkGenericConfig> {
-    config: SC,
+    pub config: SC,
 }
 
 impl<SC: StarkGenericConfig> PartitionProver<SC> {
@@ -31,7 +32,8 @@ impl<SC: StarkGenericConfig> PartitionProver<SC> {
 
     /// Assumes the traces have been generated already.
     ///
-    /// Public values is a global list shared across all AIRs in the partition.
+    /// Public values is a global list shared across all AIRs.
+    #[instrument(name = "PartitionProver::prove", level = "debug", skip_all)]
     pub fn prove<'a>(
         &self,
         challenger: &mut SC::Challenger,
@@ -60,6 +62,7 @@ impl<SC: StarkGenericConfig> PartitionProver<SC> {
 
         // Generate `alpha` challenge
         let alpha: SC::Challenge = challenger.sample_ext_element();
+        tracing::debug!("alpha: {alpha:?}");
 
         let quotient_committer = QuotientCommitter::new(pcs, alpha);
         let quotient_data = partition
@@ -98,13 +101,14 @@ impl<SC: StarkGenericConfig> PartitionProver<SC> {
         let commitments = proven_partitions
             .iter()
             .map(|part| Commitments {
-                main_trace: part.trace.commit.clone(),
-                quotient: part.quotient.commit.clone(),
+                main_trace: part.trace.verifier_view(),
+                quotient: part.quotient.verifier_view(),
             })
             .collect::<Vec<_>>();
 
         // Draw `zeta` challenge
         let zeta: SC::Challenge = challenger.sample_ext_element();
+        tracing::debug!("zeta: {zeta:?}");
 
         let opener = OpeningProver::new(pcs, zeta);
         let opening_proofs = proven_partitions

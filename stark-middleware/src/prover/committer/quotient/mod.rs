@@ -12,7 +12,7 @@ use p3_matrix::{
 use p3_maybe_rayon::prelude::*;
 use p3_uni_stark::{Domain, PackedChallenge, PackedVal, StarkGenericConfig, Val};
 use p3_util::log2_strict_usize;
-use tracing::{info_span, instrument};
+use tracing::instrument;
 
 use crate::{
     air_builders::prover::ProverConstraintFolder,

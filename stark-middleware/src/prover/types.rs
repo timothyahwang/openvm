@@ -1,4 +1,5 @@
-use p3_air::Air;
+use p3_air::{Air, BaseAir};
+use p3_commit::PolynomialSpace;
 use p3_matrix::dense::RowMajorMatrix;
 use p3_uni_stark::{Domain, StarkGenericConfig, Val};
 use serde::{Deserialize, Serialize};
@@ -6,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     air_builders::{prover::ProverConstraintFolder, symbolic::SymbolicAirBuilder},
     config::{Com, PcsProof, PcsProverData},
+    verifier::types::{VerifierQuotientData, VerifierTraceData},
 };
 
 use super::opener::OpenedValues;
@@ -23,6 +25,21 @@ pub struct ProverTraceData<SC: StarkGenericConfig> {
     pub commit: Com<SC>,
     /// Prover data, such as a Merkle tree, for the trace commitment.
     pub data: PcsProverData<SC>,
+}
+
+impl<SC: StarkGenericConfig> ProverTraceData<SC> {
+    /// Expose only parts of data necessary for the verifier.
+    pub fn verifier_view(&self) -> VerifierTraceData<SC> {
+        let degrees = self
+            .traces_with_domains
+            .iter()
+            .map(|(d, _)| d.size())
+            .collect();
+        VerifierTraceData {
+            degrees,
+            commit: self.commit.clone(),
+        }
+    }
 }
 
 /// Prover data for multiple AIRs that share a multi-matrix trace commitment.
@@ -57,12 +74,22 @@ impl<'a, SC: StarkGenericConfig> Clone for ProvenMultiMatrixAirTrace<'a, SC> {
 /// Quotient polynomials for multiple AIRs that share a multi-matrix trace commitment
 /// are committed together into a single commitment.
 pub struct ProverQuotientData<SC: StarkGenericConfig> {
-    /// Number of quotient chunks that were committed.
+    /// For each AIR, the number of quotient chunks that were committed.
     pub quotient_degrees: Vec<usize>,
     /// Quotient commitment
     pub commit: Com<SC>,
     /// Prover data for the quotient commitment
     pub data: PcsProverData<SC>,
+}
+
+impl<SC: StarkGenericConfig> ProverQuotientData<SC> {
+    /// Expose only parts of data necessary for the verifier.
+    pub fn verifier_view(&self) -> VerifierQuotientData<SC> {
+        VerifierQuotientData {
+            quotient_degrees: self.quotient_degrees.clone(),
+            commit: self.commit.clone(),
+        }
+    }
 }
 
 /// Prover data for multiple AIRs that share a single trace commitment
@@ -72,25 +99,36 @@ pub struct ProvenDataBeforeOpening<'a, SC: StarkGenericConfig> {
     pub quotient: &'a ProverQuotientData<SC>,
 }
 
+/// PCS opening proof with opened values for multi-matrix AIR.
 pub struct OpeningProofData<SC: StarkGenericConfig> {
     pub proof: PcsProof<SC>,
     pub values: OpenedValues<SC::Challenge>,
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct Commitments<Com> {
-    pub main_trace: Com,
+pub struct Commitments<SC: StarkGenericConfig> {
+    pub main_trace: VerifierTraceData<SC>,
     // pub perm_trace: Com,
-    pub quotient: Com,
+    // TODO: quotient can be shared across partitions I think
+    pub quotient: VerifierQuotientData<SC>,
 }
 
+/// The full STARK proof for a partition of multi-matrix AIRs.
+/// There are multiple AIR matrices, which are partitioned by the preimage of
+/// their trace commitments. In other words, multiple AIR trace matrices are committed
+/// into a single commitment, and these AIRs form one part of the partition.
+///
+/// Includes the quotient commitments and FRI opening proofs for the constraints as well.
 pub struct PartitionedProof<SC: StarkGenericConfig> {
-    /// Commitments separated by partition
     // TODO: I think quotient commitment should be shared
-    pub commitments: Vec<Commitments<Com<SC>>>,
+    /// The PCS commitments
+    pub commitments: Vec<Commitments<SC>>,
+    // Opening proofs separated by partition, but this may change
     pub opening_proofs: Vec<OpeningProofData<SC>>,
+    // Should we include public values here?
 }
 
+/// AIR trait for prover use
 pub trait ProverAir<SC: StarkGenericConfig>:
     for<'a> Air<ProverConstraintFolder<'a, SC>> + Air<SymbolicAirBuilder<Val<SC>>>
 {
