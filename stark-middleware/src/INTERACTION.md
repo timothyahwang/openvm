@@ -1,7 +1,7 @@
 # AIR Interactions (Cross-table lookups)
 
 We explain the interface and implementation of the communication protocol between different AIR matrices introduced by Valida here. We note that this allows AIRs with matrices of
-different heights to communicate.
+different heights to communicate. See [here](https://hackmd.io/@shuklaayush/rJHhuWGfR) for another reference.
 
 ## Interface
 
@@ -51,6 +51,15 @@ Globally, the prover will sum this per-AIR cumulative sum over all AIRs and last
 ## Virtual columns and constraints
 
 In theory the $f_j$ can be any multi-variate polynomial expression. Currently plonky3 only supports linear expressions, which are constructed via the `VirtualPairCol` struct.
+A `VirtualPairCol` is a linear function over a set of columns of the form $f(\mathbf T) = b + \sum w_i T_i$.
+
+```rust
+pub struct VirtualPairCol<F: Field> {
+    column_weights: Vec<(PairCol, F)>,
+    constant: F,
+}
+```
+
 As such, the RLC $\sum_j \beta^j \cdot f_j$ is a linear polynomial.
 
 For each send/receive interaction, we must add one virtual column $q_\sigma$ with row $r$ equal to
@@ -67,7 +76,7 @@ $$\phi[r] = \sum_{r' \leq r} \left(\sum_\sigma q_\sigma[r'] - \sum_\tau q_\tau[r
 The constraints are:
 
 - $sel_{first} \cdot \phi = sel_{first} \cdot (\sum_\sigma q_\sigma + \sum_\tau q_\tau)$
-- $sel_{transition} \cdot (\phi' - \phi) = sel_{transition} \cdot (\sum_\sigma q'_\sigma - \sum_\tau q'_\tau)$ where $\phi'$ and $q'$ mean the next row (rotation by $1$).
+- $sel_{transition} \cdot (\phi' - \phi) = sel_{transition} \cdot (\sum_\sigma q_\sigma' - \sum_\tau q_\tau')$ where $\phi'$ and $q'$ mean the next row (rotation by $1$).
 - $sel_{last} \cdot \phi = sum$
 
 where $sum$ is exposed to the verifier.
