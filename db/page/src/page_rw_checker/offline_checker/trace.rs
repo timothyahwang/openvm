@@ -10,6 +10,7 @@ use super::PageOfflineChecker;
 use crate::common::indexed_page_editor::IndexedPageEditor;
 use crate::common::page::Page;
 use crate::page_rw_checker::page_controller::{OpType, Operation};
+#[cfg(feature = "parallel")]
 use p3_maybe_rayon::prelude::*;
 
 impl PageOfflineChecker {
