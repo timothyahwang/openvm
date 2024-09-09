@@ -386,7 +386,7 @@ where
         &self,
         engine: &dyn StarkEngine<SC>,
         vk: MultiStarkVerifyingKey<SC>,
-        proof: Proof<SC>,
+        proof: &Proof<SC>,
         x: Vec<u32>,
     ) -> Result<(), VerificationError>
     where
@@ -403,7 +403,7 @@ where
         ];
 
         let mut challenger = engine.new_challenger();
-        verifier.verify(&mut challenger, &vk, &proof, &pis)
+        verifier.verify(&mut challenger, &vk, proof, &pis)
     }
 
     #[allow(clippy::too_many_arguments)]
