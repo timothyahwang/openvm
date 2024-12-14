@@ -54,7 +54,7 @@ add_metadata() {
     echo "[Benchmark Workflow](https://github.com/${repo}/actions/runs/${run_id})" >> $result_path
 }
 
-commit_and_push_gh_pages() {
+commit_and_push_benchmark_results() {
     local files=$1
     local commit_message=$2
     git add ${files}
@@ -67,9 +67,9 @@ commit_and_push_gh_pages() {
 
     while [ $ATTEMPT -lt $MAX_RETRIES ]; do
         echo "Attempt $((ATTEMPT + 1)) to push of $MAX_RETRIES..."
-        git fetch origin gh-pages
-        git merge origin/gh-pages --no-edit
-        if git push origin gh-pages; then
+        git fetch origin benchmark-results
+        git merge origin/benchmark-results --no-edit
+        if git push origin benchmark-results; then
             SUCCESS=true
             break
         else
