@@ -1,4 +1,4 @@
-# STARK Architecture
+# Circuit Architecture
 
 We build our virtual machines in a STARK proving system with a multi-matrix commitment scheme and shared verifier
 randomness between AIR matrices to enable permutation arguments such as log-up.
@@ -85,9 +85,6 @@ instructions similarly to most of the other opcodes. Also, instead of having the
 and duplicate the instructions with the chips that actually execute them, we have each step of execution only generating
 one new row in the machine chip (and maybe more lines in other primitive chips that it uses for execution).
 
-See [internal doc](https://docs.google.com/document/d/1-UkvxiW5tvYH5qw7O4t2WjMIY8v2Gso9kt_MrWW5hPg/edit?usp=sharing) for
-discussion of alternatives and the trace cell cost analysis.
-
 ### Offline Memory
 
 In the no-CPU design, each chip receives the opcode instruction directly, and memory access (read or write) is
@@ -130,6 +127,7 @@ Read) sets. Any memory access in a chip must add one entry into each set and con
 To balance the Read and Write sets, an additional chip must ensure that every accessed address has an initial $(a, v_
 {init}, 0)$ added to the Write set, and $(a, v_{final}, t_{last})$ added to Read set.
 
+<!--
 For the offline checking to be sound, it must be constrained that the list of accessed addresses in the initial Write
 list are all **unique**. Uniqueness of the initial address list implies, together with the bus argument, that the final
 address list is also unique (vice versa, uniqueness of final set implies uniqueness of initial set). The key observation
@@ -138,6 +136,7 @@ address list. The traditional approach prior to OLB24 to enforce uniqueness is t
 sorted, which uses logup lookups for range checks necessary to constrain `IsLessThan`. OLB24 shows that one can
 implement an AIR with in-circuit randomness to constrain that all entries in a trace column are unique (with an
 extension to conditional uniqueness).
+-->
 
 The initial and final memory accesses are constrained different when the VM has continuations.
 See [Continuations](./continuations.md) for full details. In summary, because the initial and final memory states are
@@ -160,19 +159,14 @@ The main idea is that in the offline checking memory argument [above](#offline-m
 t)$ where the length of $v$ is variable. The difference in word sizes only needs to be resolved when there is a sequence
 of read+write or write+read involving different word sizes.
 
-We introduce chips MemoryConverterChip[$w$] and MemoryPackChip[$w$] where
+We introduce chips `AccessAdapterChip<N>` that can:
 
-- MemoryConverterChip: read $(a, v_0 || ... || v_{B-1}, t)$ and write $(a + B \cdot i, v_i, t + 1)$ for $i \in [0,B)$
-  where $B$ is `WORD_BLOCK_SIZE`, or
-- MemoryConverterChip: read $(a + B \cdot i, v_i, t - 1)$ for $i \in [0,B)$ and write $(a, v_0 || ... || v_{w-1}, t)$ to
-  the memory.
-- MemoryPackChip: read $(a + B \cdot i, v_i, t_{prev,i})$ for $i \in [0,B)$ and write $(a, v_0 || ... || v_{w-1}, t)$ to
-  the memory. It must constrain $t_{prev,i} < t$. The difference between this and MemoryConverterChip is that it allows
-  packing smaller words that may have been modified at different previous times. This packing is more expensive.
+- read $(a, v_0 || ... || v_{N-1}, t)$ and write $(a, v_0 || ... || v_{N/2 - 1}, t)$ and $(a + N/2, v_{N/2} || ... || v_{N-1}, t)$
+- read $(a, v_0 || ... || v_{N/2 - 1}, t_0)$ and $(a + N / 2, v_{N/2} || ... || v_{N-1}, t_1)$ and write $(a, v_0 || .. || v_{N-1}, max(t_0, t_1))$
 
-Here the length of $v_i$ is $w$.
+where we allow `N` to be different powers of two.
 
-The values of $a, v_i$ that appear in the trace of the converter chip is generated on-demand based on the needs of the
+The values of $a, v_i$ that appear in the trace of the access adapter chip are generated on-demand based on the needs of the
 runtime memory access. In other words, the converter inserts additional writes into the MEMORY_BUS when needed in order
 to link up accesses of different word sizes.
 
