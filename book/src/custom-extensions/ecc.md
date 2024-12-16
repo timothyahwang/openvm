@@ -113,3 +113,20 @@ pub fn main() {
     let p3 = &p1 + &p2;
 }
 ```
+
+### Config parameters
+
+For the guest program to build successfully, all used moduli and curves must be declared in the `.toml` config file in the following format:
+
+```toml
+[app_vm_config.modular]
+supported_modulus = ["115792089237316195423570985008687907853269984665640564039457584007908834671663", "115792089237316195423570985008687907852837564279074904382605163141518161494337"]
+
+[[app_vm_config.ecc.supported_curves]]
+modulus = "115792089237316195423570985008687907853269984665640564039457584007908834671663"
+scalar = "115792089237316195423570985008687907852837564279074904382605163141518161494337"
+a = "0"
+b = "7"
+```
+
+The `supported_modulus` parameter is a list of moduli that the guest program will use. The `ecc.supported_curves` parameter is a list of supported curves that the guest program will use. They must be provided in decimal format in the `.toml` file. For multiple curves create multiple `[[app_vm_config.ecc.supported_curves]]` sections.
