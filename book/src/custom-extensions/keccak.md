@@ -14,6 +14,7 @@ See the full example [here](https://github.com/openvm-org/openvm/blob/main/crate
 
 ### Example:
 ```rust
+use hex::FromHex;
 use openvm_keccak256_guest::keccak256;
 
 pub fn main() {
@@ -36,6 +37,7 @@ To be able to import the `keccak256` function, add the following to your `Cargo.
 
 ```toml
 openvm-keccak256-guest = { git = "https://github.com/openvm-org/openvm.git" }
+hex = { version = "0.4.3", default-features = false, features = ["alloc"] }
 ```
 
 ## Native Keccak256
@@ -70,5 +72,5 @@ fn keccak256(input: &[u8]) -> [u8; 32] {
 For the guest program to build successfully add the following to your `.toml` file:
 
 ```toml
-[app_vm_config.keccak256]
+[app_vm_config.keccak]
 ```
