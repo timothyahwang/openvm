@@ -4289,12 +4289,97 @@ dependencies = [
  "openvm-pairing-transpiler",
  "openvm-rv32im-circuit",
  "openvm-rv32im-transpiler",
+ "openvm-sha256-circuit",
+ "openvm-sha256-transpiler",
  "openvm-stark-backend",
  "openvm-stark-sdk",
  "openvm-transpiler",
  "serde",
  "static_assertions",
  "tracing",
+]
+
+[[package]]
+name = "openvm-sha256-air"
+version = "0.1.0-alpha"
+dependencies = [
+ "hex",
+ "lazy_static",
+ "openvm-circuit",
+ "openvm-circuit-primitives",
+ "openvm-stark-backend",
+ "openvm-stark-sdk",
+ "rand",
+ "sha2",
+ "test-case",
+ "test-log",
+]
+
+[[package]]
+name = "openvm-sha256-circuit"
+version = "0.1.0-alpha"
+dependencies = [
+ "derive-new",
+ "derive_more 1.0.0",
+ "hex",
+ "lazy_static",
+ "openvm-circuit",
+ "openvm-circuit-derive",
+ "openvm-circuit-primitives",
+ "openvm-circuit-primitives-derive",
+ "openvm-instructions",
+ "openvm-rv32im-circuit",
+ "openvm-sha256-air",
+ "openvm-sha256-transpiler",
+ "openvm-stark-backend",
+ "openvm-stark-sdk",
+ "rand",
+ "serde",
+ "sha2",
+ "strum",
+ "test-case",
+ "test-log",
+]
+
+[[package]]
+name = "openvm-sha256-guest"
+version = "0.1.0-alpha"
+dependencies = [
+ "openvm",
+ "openvm-platform",
+ "sha2",
+]
+
+[[package]]
+name = "openvm-sha256-integration-tests"
+version = "0.1.0-alpha"
+dependencies = [
+ "eyre",
+ "openvm",
+ "openvm-build",
+ "openvm-circuit",
+ "openvm-circuit-primitives-derive",
+ "openvm-instructions",
+ "openvm-platform",
+ "openvm-rv32im-transpiler",
+ "openvm-sha256-circuit",
+ "openvm-sha256-transpiler",
+ "openvm-stark-sdk",
+ "openvm-toolchain-tests",
+ "openvm-transpiler",
+]
+
+[[package]]
+name = "openvm-sha256-transpiler"
+version = "0.1.0-alpha"
+dependencies = [
+ "openvm-instructions",
+ "openvm-instructions-derive",
+ "openvm-sha256-guest",
+ "openvm-stark-backend",
+ "openvm-transpiler",
+ "rrs-lib",
+ "strum",
 ]
 
 [[package]]
@@ -4385,6 +4470,8 @@ dependencies = [
  "openvm-platform",
  "openvm-rv32im-circuit",
  "openvm-rv32im-transpiler",
+ "openvm-sha256-circuit",
+ "openvm-sha256-transpiler",
  "openvm-stark-backend",
  "openvm-stark-sdk",
  "openvm-transpiler",
