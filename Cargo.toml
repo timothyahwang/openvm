@@ -60,6 +60,7 @@ members = [
     "extensions/sha256/transpiler",
     "extensions/sha256/guest",
     "extensions/sha256/tests",
+    "ci/scripts/metric_unify",
 ]
 exclude = ["crates/sdk/example"]
 resolver = "2"
