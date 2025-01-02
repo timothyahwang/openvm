@@ -1909,7 +1909,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "33d852cb9b869c2a9b3df2f71a3074817f01e1844f839a144f5fcef059a4eb5d"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -3064,16 +3064,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2145869435ace5ea6ea3d35f59be559317ec9a0d04e1812d5f185a87b6d36f1a"
 
 [[package]]
-name = "metric_unify"
-version = "0.1.0"
-dependencies = [
- "clap",
- "num-format",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "metrics"
 version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4176,6 +4166,18 @@ dependencies = [
  "test-case",
  "tracing",
  "zkhash",
+]
+
+[[package]]
+name = "openvm-prof"
+version = "0.1.0-alpha"
+dependencies = [
+ "clap",
+ "eyre",
+ "itertools 0.13.0",
+ "num-format",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -5684,7 +5686,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -6360,7 +6362,7 @@ dependencies = [
  "fastrand",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -7036,7 +7038,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
