@@ -50,7 +50,7 @@ where
     VC::Executor: Chip<SC>,
     VC::Periphery: Chip<SC>,
 {
-    let exe_result = leaf_vm.execute(
+    let exe_result = leaf_vm.execute_and_compute_heights(
         leaf_committed_exe.exe.clone(),
         verifier_input.write_to_stream(),
     )?;
