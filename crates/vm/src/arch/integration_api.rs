@@ -190,6 +190,9 @@ pub struct VmChipWrapper<F, A: VmAdapterChip<F>, C: VmCoreChip<F, A::Interface>>
     offline_memory: Arc<Mutex<OfflineMemory<F>>>,
 }
 
+// TODO: Make this configurable.
+const DEFAULT_RECORDS_CAPACITY: usize = 1 << 20;
+
 impl<F, A, C> VmChipWrapper<F, A, C>
 where
     A: VmAdapterChip<F>,
@@ -199,7 +202,7 @@ where
         Self {
             adapter,
             core,
-            records: vec![],
+            records: Vec::with_capacity(DEFAULT_RECORDS_CAPACITY),
             offline_memory,
         }
     }
