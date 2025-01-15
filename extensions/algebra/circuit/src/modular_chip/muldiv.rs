@@ -6,9 +6,11 @@ use std::{
 
 use openvm_algebra_transpiler::Rv32ModularArithmeticOpcode;
 use openvm_circuit::{arch::VmChipWrapper, system::memory::OfflineMemory};
-use openvm_circuit_derive::{InstructionExecutor, Stateful};
-use openvm_circuit_primitives::var_range::{VariableRangeCheckerBus, VariableRangeCheckerChip};
-use openvm_circuit_primitives_derive::{Chip, ChipUsageGetter};
+use openvm_circuit_derive::InstructionExecutor;
+use openvm_circuit_primitives::var_range::{
+    SharedVariableRangeCheckerChip, VariableRangeCheckerBus,
+};
+use openvm_circuit_primitives_derive::{BytesStateful, Chip, ChipUsageGetter};
 use openvm_mod_circuit_builder::{
     ExprBuilder, ExprBuilderConfig, FieldExpr, FieldExpressionCoreChip, FieldVariable, SymbolicExpr,
 };
@@ -55,7 +57,7 @@ pub fn muldiv_expr(
     )
 }
 
-#[derive(Chip, ChipUsageGetter, InstructionExecutor, Stateful)]
+#[derive(Chip, ChipUsageGetter, InstructionExecutor, BytesStateful)]
 pub struct ModularMulDivChip<F: PrimeField32, const BLOCKS: usize, const BLOCK_SIZE: usize>(
     pub  VmChipWrapper<
         F,
@@ -71,7 +73,7 @@ impl<F: PrimeField32, const BLOCKS: usize, const BLOCK_SIZE: usize>
         adapter: Rv32VecHeapAdapterChip<F, 2, BLOCKS, BLOCKS, BLOCK_SIZE, BLOCK_SIZE>,
         config: ExprBuilderConfig,
         offset: usize,
-        range_checker: Arc<VariableRangeCheckerChip>,
+        range_checker: SharedVariableRangeCheckerChip,
         offline_memory: Arc<Mutex<OfflineMemory<F>>>,
     ) -> Self {
         let (expr, is_mul_flag, is_div_flag) = muldiv_expr(config, range_checker.bus());
