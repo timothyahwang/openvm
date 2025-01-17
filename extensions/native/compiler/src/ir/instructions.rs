@@ -215,8 +215,6 @@ pub enum DslIr<C: Config> {
     /// Prepare next input vector (preceded by its length) for hinting.
     HintInputVec(),
     /// Prepare bit decomposition for hinting.
-    HintBitsV(Var<C::N>, u32),
-    /// Prepare bit decomposition for hinting.
     HintBitsF(Felt<C::F>, u32),
 
     StoreHintWord(Ptr<C::N>, MemIndex<C::N>),
@@ -263,10 +261,6 @@ pub enum DslIr<C: Config> {
         Array<C, Ext<C::F, C::EF>>,
         Ext<C::F, C::EF>,
     ),
-
-    // Debugging instructions.
-    /// Executes less than (var = var < var).  This operation is NOT constrained.
-    LessThan(Var<C::N>, Var<C::N>, Var<C::N>),
 
     /// Start the cycle tracker used by a block of code annotated by the string input. Calling this with the same
     /// string will end the open cycle tracker instance and start a new one with an increasing numeric postfix.
