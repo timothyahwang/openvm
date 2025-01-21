@@ -112,9 +112,6 @@ pub enum DslIr<C: Config> {
     // =======
 
     // Control flow.
-    /// Executes a for loop with the parameters (start step value, end step value, step size, step variable, body).
-    For(RVar<C::N>, RVar<C::N>, C::N, Var<C::N>, TracedVec<DslIr<C>>),
-
     /// Executes a zipped iterator for loop over pointers with the parameters
     /// (start step values, end step value of first pointer, step sizes, step variables, body).
     ZipFor(
@@ -143,8 +140,6 @@ pub enum DslIr<C: Config> {
     IfEqI(Var<C::N>, C::N, TracedVec<DslIr<C>>, TracedVec<DslIr<C>>),
     /// Executes a not equal conditional branch with the parameters (lhs var, rhs imm, then body, else body).
     IfNeI(Var<C::N>, C::N, TracedVec<DslIr<C>>, TracedVec<DslIr<C>>),
-    /// Break out of a loop.
-    Break,
 
     // Assertions.
     /// Assert that two variables are equal (var == var).
