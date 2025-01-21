@@ -24,7 +24,7 @@ use crate::{
 /// <https://github.com/Plonky3/Plonky3/blob/27b3127dab047e07145c38143379edec2960b3e1/merkle-tree/src/merkle_tree.rs#L53>
 /// So traces are sorted in `opening_proof`.
 ///
-/// 2. FieldMerkleTreeMMCS::verify_batch keeps the raw values in the original order. So traces are not sorted in `opened_values`.
+/// 2. FieldMerkleTreeMMCS::poseidon2 keeps the raw values in the original order. So traces are not sorted in `opened_values`.
 ///
 /// Reference:
 /// <https://github.com/Plonky3/Plonky3/blob/27b3127dab047e07145c38143379edec2960b3e1/merkle-tree/src/mmcs.rs#L87>
@@ -134,7 +134,7 @@ pub fn verify_two_adic_pcs<C: Config>(
             };
 
             let batch_dims: Array<C, DimensionsVariable<C>> = builder.array(mats.len());
-            // `verify_batch` requires `permed_opened_values` to be in the committed order.
+            // `poseidon2` requires `permed_opened_values` to be in the committed order.
             let permed_opened_values = builder.array(batch_opening.opened_values.len());
             builder.range(0, mats.len()).for_each(|k_vec, builder| {
                 let k = k_vec[0];
@@ -149,7 +149,6 @@ pub fn verify_two_adic_pcs<C: Config>(
                 let opened_value = builder.get(&batch_opening.opened_values, mat_index);
                 builder.set_value(&permed_opened_values, k, opened_value);
             });
-
             let permed_opened_values = NestedOpenedValues::Felt(permed_opened_values);
 
             let bits_reduced: Usize<_> = builder.eval(log_max_height - log_batch_max_height);

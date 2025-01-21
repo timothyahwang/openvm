@@ -2,8 +2,7 @@ use openvm_circuit::arch::instructions::program::Program;
 use openvm_instructions::{
     instruction::{DebugInfo, Instruction},
     program::{DEFAULT_MAX_NUM_PUBLIC_VALUES, DEFAULT_PC_STEP},
-    PhantomDiscriminant, Poseidon2Opcode, PublishOpcode, SysPhantom, SystemOpcode, UsizeOpcode,
-    VmOpcode,
+    PhantomDiscriminant, PublishOpcode, SysPhantom, SystemOpcode, UsizeOpcode, VmOpcode,
 };
 use openvm_rv32im_transpiler::BranchEqualOpcode;
 use openvm_stark_backend::p3_field::{ExtensionField, PrimeField32, PrimeField64};
@@ -12,7 +11,8 @@ use serde::{Deserialize, Serialize};
 use crate::{
     asm::{AsmInstruction, AssemblyCode},
     FieldArithmeticOpcode, FieldExtensionOpcode, FriOpcode, NativeBranchEqualOpcode,
-    NativeJalOpcode, NativeLoadStore4Opcode, NativeLoadStoreOpcode, NativePhantom,
+    NativeJalOpcode, NativeLoadStore4Opcode, NativeLoadStoreOpcode, NativePhantom, Poseidon2Opcode,
+    VerifyBatchOpcode,
 };
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -473,6 +473,26 @@ fn convert_instruction<F: PrimeField32, EF: ExtensionField<F>>(
             e: i32_f(len),
             f: i32_f(alpha),
             g: i32_f(alpha_pow),
+        }],
+        AsmInstruction::VerifyBatchFelt(dim, opened, opened_length, sibling, index, commit) => vec![Instruction {
+            opcode: options.opcode_with_offset(VerifyBatchOpcode::VERIFY_BATCH),
+            a: i32_f(dim),
+            b: i32_f(opened),
+            c: i32_f(opened_length),
+            d: i32_f(sibling),
+            e: i32_f(index),
+            f: i32_f(commit),
+            g: F::ONE,
+        }],
+        AsmInstruction::VerifyBatchExt(dim, opened, opened_length, sibling, index, commit) => vec![Instruction {
+            opcode: options.opcode_with_offset(VerifyBatchOpcode::VERIFY_BATCH),
+            a: i32_f(dim),
+            b: i32_f(opened),
+            c: i32_f(opened_length),
+            d: i32_f(sibling),
+            e: i32_f(index),
+            f: i32_f(commit),
+            g: F::from_canonical_usize(4).inverse(),
         }],
     };
 

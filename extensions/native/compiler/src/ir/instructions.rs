@@ -256,6 +256,24 @@ pub enum DslIr<C: Config> {
         Array<C, Ext<C::F, C::EF>>,
         Ext<C::F, C::EF>,
     ),
+    /// VerifyBatch(dim, opened, sibling, index, commit)
+    /// opened values are Felts
+    VerifyBatchFelt(
+        Array<C, Usize<C::F>>,
+        Array<C, Array<C, Felt<C::F>>>,
+        Array<C, Array<C, Felt<C::F>>>,
+        Array<C, Var<C::N>>,
+        Array<C, Felt<C::F>>,
+    ),
+    /// VerifyBatch(dim, opened, sibling, index, commit)
+    /// opened values are Exts
+    VerifyBatchExt(
+        Array<C, Usize<C::F>>,
+        Array<C, Array<C, Ext<C::F, C::EF>>>,
+        Array<C, Array<C, Felt<C::F>>>,
+        Array<C, Var<C::N>>,
+        Array<C, Felt<C::F>>,
+    ),
 
     /// Start the cycle tracker used by a block of code annotated by the string input. Calling this with the same
     /// string will end the open cycle tracker instance and start a new one with an increasing numeric postfix.

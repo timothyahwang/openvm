@@ -565,6 +565,32 @@ impl<F: PrimeField32 + TwoAdicField, EF: ExtensionField<F> + TwoAdicField> AsmCo
                         debug_info,
                     );
                 }
+                DslIr::VerifyBatchFelt(dim, opened, sibling, index, commit) => {
+                    self.push(
+                        AsmInstruction::VerifyBatchFelt(
+                            dim.ptr().fp(),
+                            opened.ptr().fp(),
+                            opened.len().get_var().fp(),
+                            sibling.ptr().fp(),
+                            index.ptr().fp(),
+                            commit.ptr().fp(),
+                        ),
+                        debug_info,
+                    );
+                }
+                DslIr::VerifyBatchExt(dim, opened, sibling, index, commit) => {
+                    self.push(
+                        AsmInstruction::VerifyBatchExt(
+                            dim.ptr().fp(),
+                            opened.ptr().fp(),
+                            opened.len().get_var().fp(),
+                            sibling.ptr().fp(),
+                            index.ptr().fp(),
+                            commit.ptr().fp(),
+                        ),
+                        debug_info,
+                    );
+                }
                 _ => unimplemented!(),
             }
         }
