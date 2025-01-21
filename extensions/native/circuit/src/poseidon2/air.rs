@@ -5,6 +5,7 @@ use openvm_circuit::{
     system::memory::{offline_checker::MemoryBridge, MemoryAddress},
 };
 use openvm_circuit_primitives::utils::not;
+use openvm_instructions::LocalOpcode;
 use openvm_native_compiler::{
     Poseidon2Opcode::{COMP_POS2, PERM_POS2},
     VerifyBatchOpcode::VERIFY_BATCH,
@@ -36,8 +37,6 @@ pub struct NativePoseidon2Air<F: Field, const SBOX_REGISTERS: usize> {
     pub memory_bridge: MemoryBridge,
     pub internal_bus: VerifyBatchBus,
     pub(crate) subair: Arc<Poseidon2SubAir<F, SBOX_REGISTERS>>,
-    pub(super) verify_batch_offset: usize,
-    pub(super) simple_offset: usize,
     pub(crate) address_space: F,
 }
 
@@ -344,7 +343,7 @@ impl<AB: InteractionBuilder, const SBOX_REGISTERS: usize> Air<AB>
             .assert_eq(next.initial_opened_index, AB::F::ZERO);
         self.execution_bridge
             .execute_and_increment_pc(
-                AB::Expr::from_canonical_usize(VERIFY_BATCH as usize + self.verify_batch_offset),
+                AB::Expr::from_canonical_usize(VERIFY_BATCH.global_opcode().as_usize()),
                 [
                     dim_register,
                     opened_register,
@@ -614,9 +613,10 @@ impl<AB: InteractionBuilder, const SBOX_REGISTERS: usize> Air<AB>
 
         self.execution_bridge
             .execute_and_increment_pc(
-                (is_permute.clone() * AB::F::from_canonical_usize(PERM_POS2 as usize))
-                    + (is_compress * AB::F::from_canonical_usize(COMP_POS2 as usize))
-                    + AB::F::from_canonical_usize(self.simple_offset),
+                is_permute.clone()
+                    * AB::F::from_canonical_usize(PERM_POS2.global_opcode().as_usize())
+                    + is_compress
+                        * AB::F::from_canonical_usize(COMP_POS2.global_opcode().as_usize()),
                 [
                     output_register.into(),
                     input_register_1.into(),

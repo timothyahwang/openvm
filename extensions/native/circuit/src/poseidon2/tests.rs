@@ -4,12 +4,9 @@ use openvm_circuit::arch::{
     testing::{memory::gen_pointer, VmChipTestBuilder, VmChipTester},
     VirtualMachine,
 };
-use openvm_instructions::{
-    instruction::Instruction, program::Program, SystemOpcode, UsizeOpcode, VmOpcode,
-};
+use openvm_instructions::{instruction::Instruction, program::Program, LocalOpcode, SystemOpcode};
 use openvm_native_compiler::{
-    FieldArithmeticOpcode, Poseidon2Opcode, Poseidon2Opcode::*, VerifyBatchOpcode,
-    VerifyBatchOpcode::VERIFY_BATCH,
+    FieldArithmeticOpcode, Poseidon2Opcode, Poseidon2Opcode::*, VerifyBatchOpcode::VERIFY_BATCH,
 };
 use openvm_poseidon2_air::{Poseidon2Config, Poseidon2SubChip};
 use openvm_stark_backend::{
@@ -156,8 +153,6 @@ fn test<const N: usize>(cases: [Case; N]) {
     let mut tester = VmChipTestBuilder::default();
     let mut chip = NativePoseidon2Chip::<F, SBOX_REGISTERS>::new(
         tester.system_port(),
-        VerifyBatchOpcode::default_offset(),
-        Poseidon2Opcode::default_offset(),
         tester.offline_memory_mutex_arc(),
         Poseidon2Config::default(),
         VERIFY_BATCH_BUS,
@@ -241,7 +236,7 @@ fn test<const N: usize>(cases: [Case; N]) {
         tester.execute(
             &mut chip,
             &Instruction::from_usize(
-                VmOpcode::from_usize(VERIFY_BATCH as usize + VerifyBatchOpcode::default_offset()),
+                VERIFY_BATCH.global_opcode(),
                 [
                     dim_register,
                     opened_register,
@@ -362,14 +357,12 @@ fn random_instructions(num_ops: usize) -> Vec<Instruction<BabyBear>> {
             let [a, b, c] =
                 std::array::from_fn(|_| BabyBear::from_canonical_usize(gen_pointer(&mut rng, 1)));
             Instruction {
-                opcode: VmOpcode::from_usize(
-                    if rng.gen_bool(0.5) {
-                        PERM_POS2
-                    } else {
-                        COMP_POS2
-                    } as usize
-                        + Poseidon2Opcode::default_offset(),
-                ),
+                opcode: if rng.gen_bool(0.5) {
+                    PERM_POS2
+                } else {
+                    COMP_POS2
+                }
+                .global_opcode(),
                 a,
                 b,
                 c,
@@ -388,8 +381,6 @@ fn tester_with_random_poseidon2_ops(num_ops: usize) -> VmChipTester<BabyBearBlak
     let mut tester = VmChipTestBuilder::default();
     let mut chip = NativePoseidon2Chip::<F, SBOX_REGISTERS>::new(
         tester.system_port(),
-        VerifyBatchOpcode::default_offset(),
-        Poseidon2Opcode::default_offset(),
         tester.offline_memory_mutex_arc(),
         Poseidon2Config::default(),
         VERIFY_BATCH_BUS,
@@ -399,7 +390,9 @@ fn tester_with_random_poseidon2_ops(num_ops: usize) -> VmChipTester<BabyBearBlak
 
     for instruction in random_instructions(num_ops) {
         let opcode = Poseidon2Opcode::from_usize(
-            instruction.opcode.as_usize() - Poseidon2Opcode::default_offset(),
+            instruction
+                .opcode
+                .local_opcode_idx(Poseidon2Opcode::CLASS_OFFSET),
         );
         let [a, b, c, d, e] = [
             instruction.a,
@@ -520,7 +513,7 @@ fn test_vm_compress_poseidon2_as2() {
     for i in 0..CHUNK as isize {
         // [lhs_ptr + i]_2 <- rnd()
         instructions.push(Instruction::large_from_isize(
-            VmOpcode::with_default_offset(FieldArithmeticOpcode::ADD),
+            FieldArithmeticOpcode::ADD.global_opcode(),
             lhs_ptr + i,
             rng.gen_range(1..1 << 20),
             0,
@@ -534,7 +527,7 @@ fn test_vm_compress_poseidon2_as2() {
     for i in 0..CHUNK as isize {
         // [rhs_ptr + i]_2 <- rnd()
         instructions.push(Instruction::large_from_isize(
-            VmOpcode::with_default_offset(FieldArithmeticOpcode::ADD),
+            FieldArithmeticOpcode::ADD.global_opcode(),
             rhs_ptr + i,
             rng.gen_range(1..1 << 20),
             0,
@@ -548,7 +541,7 @@ fn test_vm_compress_poseidon2_as2() {
 
     // [11]_1 <- lhs_ptr
     instructions.push(Instruction::large_from_isize(
-        VmOpcode::with_default_offset(FieldArithmeticOpcode::ADD),
+        FieldArithmeticOpcode::ADD.global_opcode(),
         11,
         lhs_ptr,
         0,
@@ -560,7 +553,7 @@ fn test_vm_compress_poseidon2_as2() {
 
     // [22]_1 <- rhs_ptr
     instructions.push(Instruction::large_from_isize(
-        VmOpcode::with_default_offset(FieldArithmeticOpcode::ADD),
+        FieldArithmeticOpcode::ADD.global_opcode(),
         22,
         rhs_ptr,
         0,
@@ -571,7 +564,7 @@ fn test_vm_compress_poseidon2_as2() {
     ));
     // [33]_1 <- dst_ptr
     instructions.push(Instruction::large_from_isize(
-        VmOpcode::with_default_offset(FieldArithmeticOpcode::ADD),
+        FieldArithmeticOpcode::ADD.global_opcode(),
         33,
         0,
         dst_ptr,
@@ -582,7 +575,7 @@ fn test_vm_compress_poseidon2_as2() {
     ));
 
     instructions.push(Instruction::from_isize(
-        VmOpcode::with_default_offset(COMP_POS2),
+        COMP_POS2.global_opcode(),
         33,
         11,
         22,
@@ -590,7 +583,7 @@ fn test_vm_compress_poseidon2_as2() {
         2,
     ));
     instructions.push(Instruction::from_isize(
-        VmOpcode::with_default_offset(SystemOpcode::TERMINATE),
+        SystemOpcode::TERMINATE.global_opcode(),
         0,
         0,
         0,

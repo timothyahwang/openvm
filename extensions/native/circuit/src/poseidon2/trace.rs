@@ -2,7 +2,7 @@ use std::{borrow::BorrowMut, sync::Arc};
 
 use openvm_circuit::system::memory::{MemoryAuxColsFactory, OfflineMemory};
 use openvm_circuit_primitives::utils::next_power_of_two_or_zero;
-use openvm_instructions::{instruction::Instruction, VmOpcode};
+use openvm_instructions::{instruction::Instruction, LocalOpcode};
 use openvm_native_compiler::Poseidon2Opcode::COMP_POS2;
 use openvm_stark_backend::{
     config::{StarkGenericConfig, Val},
@@ -410,7 +410,7 @@ impl<F: PrimeField32, const SBOX_REGISTERS: usize> NativePoseidon2Chip<F, SBOX_R
             cols.specific[..SimplePoseidonSpecificCols::<F>::width()].borrow_mut();
 
         specific.pc = F::from_canonical_u32(from_state.pc);
-        specific.is_compress = F::from_bool(opcode == VmOpcode::with_default_offset(COMP_POS2));
+        specific.is_compress = F::from_bool(opcode == COMP_POS2.global_opcode());
         specific.output_register = output_register;
         specific.input_register_1 = input_register_1;
         specific.input_register_2 = input_register_2;
@@ -425,7 +425,7 @@ impl<F: PrimeField32, const SBOX_REGISTERS: usize> NativePoseidon2Chip<F, SBOX_R
         specific.read_data_2 = aux_cols_factory.make_read_aux_cols(read_data_2);
         specific.write_data_1 = aux_cols_factory.make_write_aux_cols(write_data_1);
 
-        if opcode == VmOpcode::with_default_offset(COMP_POS2) {
+        if opcode == COMP_POS2.global_opcode() {
             let read_input_pointer_2 = memory.record_by_id(read_input_pointer_2.unwrap());
             specific.read_input_pointer_2 =
                 aux_cols_factory.make_read_aux_cols(read_input_pointer_2);

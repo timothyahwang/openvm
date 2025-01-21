@@ -4,7 +4,7 @@ use openvm_circuit::{
     arch::{ExecutionBridge, ExecutionError, ExecutionState, InstructionExecutor, SystemPort},
     system::memory::{MemoryController, OfflineMemory, RecordId},
 };
-use openvm_instructions::{instruction::Instruction, program::DEFAULT_PC_STEP, VmOpcode};
+use openvm_instructions::{instruction::Instruction, program::DEFAULT_PC_STEP, LocalOpcode};
 use openvm_native_compiler::{
     Poseidon2Opcode::{COMP_POS2, PERM_POS2},
     VerifyBatchOpcode::VERIFY_BATCH,
@@ -159,8 +159,6 @@ impl<F: PrimeField32, const SBOX_REGISTERS: usize> Stateful<Vec<u8>>
 impl<F: PrimeField32, const SBOX_REGISTERS: usize> NativePoseidon2Chip<F, SBOX_REGISTERS> {
     pub fn new(
         port: SystemPort,
-        verify_batch_offset: usize,
-        perm_pos2_offset: usize,
         offline_memory: Arc<Mutex<OfflineMemory<F>>>,
         poseidon2_config: Poseidon2Config<F>,
         verify_batch_bus: VerifyBatchBus,
@@ -170,8 +168,6 @@ impl<F: PrimeField32, const SBOX_REGISTERS: usize> NativePoseidon2Chip<F, SBOX_R
             memory_bridge: port.memory_bridge,
             internal_bus: verify_batch_bus,
             subair: Arc::new(Poseidon2SubAir::new(poseidon2_config.constants.into())),
-            verify_batch_offset,
-            simple_offset: perm_pos2_offset,
             address_space: F::from_canonical_u32(5),
         };
         Self {
@@ -203,8 +199,8 @@ impl<F: PrimeField32, const SBOX_REGISTERS: usize> InstructionExecutor<F>
         instruction: &Instruction<F>,
         from_state: ExecutionState<u32>,
     ) -> Result<ExecutionState<u32>, ExecutionError> {
-        if instruction.opcode == VmOpcode::with_default_offset(PERM_POS2)
-            || instruction.opcode == VmOpcode::with_default_offset(COMP_POS2)
+        if instruction.opcode == PERM_POS2.global_opcode()
+            || instruction.opcode == COMP_POS2.global_opcode()
         {
             let &Instruction {
                 a: output_register,
@@ -220,7 +216,7 @@ impl<F: PrimeField32, const SBOX_REGISTERS: usize> InstructionExecutor<F>
             let (read_input_pointer_1, input_pointer_1) =
                 memory.read_cell(register_address_space, input_register_1);
             let (read_input_pointer_2, input_pointer_2) =
-                if instruction.opcode == VmOpcode::with_default_offset(PERM_POS2) {
+                if instruction.opcode == PERM_POS2.global_opcode() {
                     memory.increment_timestamp();
                     (None, input_pointer_1 + F::from_canonical_usize(CHUNK))
                 } else {
@@ -243,7 +239,7 @@ impl<F: PrimeField32, const SBOX_REGISTERS: usize> InstructionExecutor<F>
                 output_pointer,
                 std::array::from_fn(|i| output[i]),
             );
-            let write_data_2 = if instruction.opcode == VmOpcode::with_default_offset(PERM_POS2) {
+            let write_data_2 = if instruction.opcode == PERM_POS2.global_opcode() {
                 Some(
                     memory
                         .write::<CHUNK>(
@@ -281,7 +277,7 @@ impl<F: PrimeField32, const SBOX_REGISTERS: usize> InstructionExecutor<F>
                     p2_input,
                 });
             self.height += 1;
-        } else if instruction.opcode == VmOpcode::with_default_offset(VERIFY_BATCH) {
+        } else if instruction.opcode == VERIFY_BATCH.global_opcode() {
             let &Instruction {
                 a: dim_register,
                 b: opened_register,
@@ -531,11 +527,11 @@ impl<F: PrimeField32, const SBOX_REGISTERS: usize> InstructionExecutor<F>
     }
 
     fn get_opcode_name(&self, opcode: usize) -> String {
-        if opcode == (VERIFY_BATCH as usize) + self.air.verify_batch_offset {
+        if opcode == VERIFY_BATCH.global_opcode().as_usize() {
             String::from("VERIFY_BATCH")
-        } else if opcode == (PERM_POS2 as usize) + self.air.simple_offset {
+        } else if opcode == PERM_POS2.global_opcode().as_usize() {
             String::from("PERM_POS2")
-        } else if opcode == (COMP_POS2 as usize) + self.air.simple_offset {
+        } else if opcode == COMP_POS2.global_opcode().as_usize() {
             String::from("COMP_POS2")
         } else {
             unreachable!("unsupported opcode: {}", opcode)

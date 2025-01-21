@@ -8,7 +8,7 @@ use openvm_circuit_primitives::{
     bitwise_op_lookup::{BitwiseOperationLookupBus, SharedBitwiseOperationLookupChip},
 };
 use openvm_ecc_transpiler::Rv32WeierstrassOpcode;
-use openvm_instructions::{riscv::RV32_CELL_BITS, UsizeOpcode};
+use openvm_instructions::{riscv::RV32_CELL_BITS, LocalOpcode};
 use openvm_mod_circuit_builder::{test_utils::biguint_to_limbs, ExprBuilderConfig, FieldExpr};
 use openvm_rv32_adapters::{rv32_write_heap_default, Rv32VecHeapAdapterChip};
 use openvm_stark_backend::p3_field::FieldAlgebra;
@@ -97,7 +97,7 @@ fn test_add_ne() {
     let mut chip = EcAddNeChip::new(
         adapter,
         config,
-        Rv32WeierstrassOpcode::default_offset(),
+        Rv32WeierstrassOpcode::CLASS_OFFSET,
         tester.range_checker(),
         tester.offline_memory_mutex_arc(),
     );
@@ -177,7 +177,7 @@ fn test_double() {
         adapter,
         tester.memory_controller().borrow().range_checker.clone(),
         config,
-        Rv32WeierstrassOpcode::default_offset(),
+        Rv32WeierstrassOpcode::CLASS_OFFSET,
         BigUint::zero(),
         tester.offline_memory_mutex_arc(),
     );
@@ -254,7 +254,7 @@ fn test_p256_double() {
         adapter,
         tester.memory_controller().borrow().range_checker.clone(),
         config,
-        Rv32WeierstrassOpcode::default_offset(),
+        Rv32WeierstrassOpcode::CLASS_OFFSET,
         a.clone(),
         tester.offline_memory_mutex_arc(),
     );

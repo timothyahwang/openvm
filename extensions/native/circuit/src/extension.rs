@@ -13,7 +13,7 @@ use openvm_circuit::{
 };
 use openvm_circuit_derive::{AnyEnum, InstructionExecutor, VmConfig};
 use openvm_circuit_primitives_derive::{BytesStateful, Chip, ChipUsageGetter};
-use openvm_instructions::{program::DEFAULT_PC_STEP, PhantomDiscriminant, UsizeOpcode, VmOpcode};
+use openvm_instructions::{program::DEFAULT_PC_STEP, LocalOpcode, PhantomDiscriminant};
 use openvm_native_compiler::{
     CastfOpcode, FieldArithmeticOpcode, FieldExtensionOpcode, FriOpcode, NativeBranchEqualOpcode,
     NativeJalOpcode, NativeLoadStore4Opcode, NativeLoadStoreOpcode, NativePhantom, Poseidon2Opcode,
@@ -115,16 +115,16 @@ impl<F: PrimeField32> VmExtension<F> for Native {
                 execution_bus,
                 program_bus,
                 memory_bridge,
-                NativeLoadStoreOpcode::default_offset(),
+                NativeLoadStoreOpcode::CLASS_OFFSET,
             ),
-            NativeLoadStoreCoreChip::new(NativeLoadStoreOpcode::default_offset()),
+            NativeLoadStoreCoreChip::new(NativeLoadStoreOpcode::CLASS_OFFSET),
             offline_memory.clone(),
         );
         load_store_chip.core.set_streams(builder.streams().clone());
 
         inventory.add_executor(
             load_store_chip,
-            NativeLoadStoreOpcode::iter().map(VmOpcode::with_default_offset),
+            NativeLoadStoreOpcode::iter().map(|x| x.global_opcode()),
         )?;
 
         let mut block_load_store_chip = NativeLoadStoreChip::<F, BLOCK_LOAD_STORE_SIZE>::new(
@@ -132,9 +132,9 @@ impl<F: PrimeField32> VmExtension<F> for Native {
                 execution_bus,
                 program_bus,
                 memory_bridge,
-                NativeLoadStore4Opcode::default_offset(),
+                NativeLoadStore4Opcode::CLASS_OFFSET,
             ),
-            NativeLoadStoreCoreChip::new(NativeLoadStore4Opcode::default_offset()),
+            NativeLoadStoreCoreChip::new(NativeLoadStore4Opcode::CLASS_OFFSET),
             offline_memory.clone(),
         );
         block_load_store_chip
@@ -143,65 +143,59 @@ impl<F: PrimeField32> VmExtension<F> for Native {
 
         inventory.add_executor(
             block_load_store_chip,
-            NativeLoadStore4Opcode::iter().map(VmOpcode::with_default_offset),
+            NativeLoadStore4Opcode::iter().map(|x| x.global_opcode()),
         )?;
 
         let branch_equal_chip = NativeBranchEqChip::new(
             BranchNativeAdapterChip::<_>::new(execution_bus, program_bus, memory_bridge),
-            BranchEqualCoreChip::new(NativeBranchEqualOpcode::default_offset(), DEFAULT_PC_STEP),
+            BranchEqualCoreChip::new(NativeBranchEqualOpcode::CLASS_OFFSET, DEFAULT_PC_STEP),
             offline_memory.clone(),
         );
         inventory.add_executor(
             branch_equal_chip,
-            NativeBranchEqualOpcode::iter().map(VmOpcode::with_default_offset),
+            NativeBranchEqualOpcode::iter().map(|x| x.global_opcode()),
         )?;
 
         let jal_chip = NativeJalChip::new(
             JalNativeAdapterChip::<_>::new(execution_bus, program_bus, memory_bridge),
-            JalCoreChip::new(NativeJalOpcode::default_offset()),
+            JalCoreChip::new(),
             offline_memory.clone(),
         );
-        inventory.add_executor(
-            jal_chip,
-            NativeJalOpcode::iter().map(VmOpcode::with_default_offset),
-        )?;
+        inventory.add_executor(jal_chip, NativeJalOpcode::iter().map(|x| x.global_opcode()))?;
 
         let field_arithmetic_chip = FieldArithmeticChip::new(
             NativeAdapterChip::<F, 2, 1>::new(execution_bus, program_bus, memory_bridge),
-            FieldArithmeticCoreChip::new(FieldArithmeticOpcode::default_offset()),
+            FieldArithmeticCoreChip::new(),
             offline_memory.clone(),
         );
         inventory.add_executor(
             field_arithmetic_chip,
-            FieldArithmeticOpcode::iter().map(VmOpcode::with_default_offset),
+            FieldArithmeticOpcode::iter().map(|x| x.global_opcode()),
         )?;
 
         let field_extension_chip = FieldExtensionChip::new(
             NativeVectorizedAdapterChip::new(execution_bus, program_bus, memory_bridge),
-            FieldExtensionCoreChip::new(FieldExtensionOpcode::default_offset()),
+            FieldExtensionCoreChip::new(),
             offline_memory.clone(),
         );
         inventory.add_executor(
             field_extension_chip,
-            FieldExtensionOpcode::iter().map(VmOpcode::with_default_offset),
+            FieldExtensionOpcode::iter().map(|x| x.global_opcode()),
         )?;
 
         let fri_reduced_opening_chip = FriReducedOpeningChip::new(
             execution_bus,
             program_bus,
             memory_bridge,
-            FriOpcode::default_offset(),
             offline_memory.clone(),
         );
         inventory.add_executor(
             fri_reduced_opening_chip,
-            FriOpcode::iter().map(VmOpcode::with_default_offset),
+            FriOpcode::iter().map(|x| x.global_opcode()),
         )?;
 
         let poseidon2_chip = NativePoseidon2Chip::new(
             builder.system_port(),
-            VerifyBatchOpcode::default_offset(),
-            Poseidon2Opcode::default_offset(),
             offline_memory.clone(),
             Poseidon2Config::default(),
             VerifyBatchBus(builder.new_bus_idx()),
@@ -209,9 +203,9 @@ impl<F: PrimeField32> VmExtension<F> for Native {
         inventory.add_executor(
             poseidon2_chip,
             [
-                VmOpcode::with_default_offset(VerifyBatchOpcode::VERIFY_BATCH),
-                VmOpcode::with_default_offset(Poseidon2Opcode::PERM_POS2),
-                VmOpcode::with_default_offset(Poseidon2Opcode::COMP_POS2),
+                VerifyBatchOpcode::VERIFY_BATCH.global_opcode(),
+                Poseidon2Opcode::PERM_POS2.global_opcode(),
+                Poseidon2Opcode::COMP_POS2.global_opcode(),
             ],
         )?;
 
@@ -348,13 +342,10 @@ impl<F: PrimeField32> VmExtension<F> for CastFExtension {
 
         let castf_chip = CastFChip::new(
             ConvertAdapterChip::new(execution_bus, program_bus, memory_bridge),
-            CastFCoreChip::new(range_checker.clone(), CastfOpcode::default_offset()),
+            CastFCoreChip::new(range_checker.clone()),
             offline_memory.clone(),
         );
-        inventory.add_executor(
-            castf_chip,
-            [VmOpcode::with_default_offset(CastfOpcode::CASTF)],
-        )?;
+        inventory.add_executor(castf_chip, [CastfOpcode::CASTF.global_opcode()])?;
 
         Ok(inventory)
     }

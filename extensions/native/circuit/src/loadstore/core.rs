@@ -5,7 +5,7 @@ use std::{
 };
 
 use openvm_circuit::arch::{
-    instructions::UsizeOpcode, AdapterAirContext, AdapterRuntimeContext, ExecutionError, Result,
+    instructions::LocalOpcode, AdapterAirContext, AdapterRuntimeContext, ExecutionError, Result,
     Streams, VmAdapterInterface, VmCoreAir, VmCoreChip,
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
@@ -84,12 +84,16 @@ where
         });
         builder.assert_bool(is_valid.clone());
 
-        let expected_opcode = flags.iter().zip(NativeLoadStoreOpcode::iter()).fold(
-            AB::Expr::ZERO,
-            |acc, (flag, local_opcode)| {
-                acc + (*flag).into() * AB::Expr::from_canonical_usize(local_opcode.as_usize())
-            },
-        ) + AB::Expr::from_canonical_usize(self.offset);
+        let expected_opcode = VmCoreAir::<AB, I>::expr_to_global_expr(
+            self,
+            flags.iter().zip(NativeLoadStoreOpcode::iter()).fold(
+                AB::Expr::ZERO,
+                |acc, (flag, local_opcode)| {
+                    acc + (*flag).into()
+                        * AB::Expr::from_canonical_usize(local_opcode.local_usize())
+                },
+            ),
+        );
 
         AdapterAirContext {
             to_pc: None,
@@ -104,6 +108,10 @@ where
             }
             .into(),
         }
+    }
+
+    fn start_offset(&self) -> usize {
+        self.offset
     }
 }
 
@@ -122,6 +130,12 @@ impl<F: Field, const NUM_CELLS: usize> NativeLoadStoreCoreChip<F, NUM_CELLS> {
     }
     pub fn set_streams(&mut self, streams: Arc<Mutex<Streams<F>>>) {
         self.streams.set(streams).unwrap();
+    }
+}
+
+impl<F: Field, const NUM_CELLS: usize> Default for NativeLoadStoreCoreChip<F, NUM_CELLS> {
+    fn default() -> Self {
+        Self::new(NativeLoadStoreOpcode::CLASS_OFFSET)
     }
 }
 
