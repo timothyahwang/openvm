@@ -354,7 +354,7 @@ fn test_static_verifier_custom_pv_handler() {
             StdIn::default(),
         )
         .unwrap();
-    assert!(Sdk.verify_evm_proof(&evm_verifier, &evm_proof));
+    assert!(Sdk.verify_evm_proof(&evm_verifier, &evm_proof).is_ok());
 }
 
 #[test]
@@ -383,7 +383,7 @@ fn test_e2e_proof_generation_and_verification() {
             StdIn::default(),
         )
         .unwrap();
-    assert!(Sdk.verify_evm_proof(&evm_verifier, &evm_proof));
+    assert!(Sdk.verify_evm_proof(&evm_verifier, &evm_proof).is_ok());
 }
 
 #[test]
