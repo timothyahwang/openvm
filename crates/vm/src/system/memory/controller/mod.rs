@@ -737,7 +737,7 @@ impl<F: PrimeField32> MemoryAuxColsFactory<F> {
     ) {
         buffer
             .prev_data
-            .copy_from_slice(write.prev_data.as_ref().unwrap());
+            .copy_from_slice(write.prev_data_slice().unwrap());
         self.generate_base_aux(write, &mut buffer.base);
     }
 
@@ -780,7 +780,7 @@ impl<F: PrimeField32> MemoryAuxColsFactory<F> {
         &self,
         write: &MemoryRecord<F>,
     ) -> MemoryWriteAuxCols<F, N> {
-        let prev_data = write.prev_data.clone().unwrap();
+        let prev_data = write.prev_data_slice().unwrap();
         MemoryWriteAuxCols::new(
             prev_data.try_into().unwrap(),
             F::from_canonical_u32(write.prev_timestamp),
