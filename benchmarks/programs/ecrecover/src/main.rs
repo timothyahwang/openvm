@@ -3,20 +3,23 @@
 
 extern crate alloc;
 
-use alloy_primitives::{keccak256, Bytes, B256, B512};
+use alloy_primitives::{B256, B512, Bytes, keccak256};
 use k256::{
     ecdsa::{Error, RecoveryId, Signature},
     Secp256k1,
 };
 use openvm::io::read_vec;
+use openvm_algebra_guest::field::FieldExtension;
 #[allow(unused_imports)]
 use openvm_ecc_guest::{
     algebra::IntMod, ecdsa::VerifyingKey, k256::Secp256k1Point, weierstrass::WeierstrassPoint,
 };
+use openvm_ecc_guest::AffinePoint;
 #[allow(unused_imports, clippy::single_component_path_imports)]
-use openvm_keccak256_guest; // export native keccak
+use openvm_keccak256_guest;
+// export native keccak
 use revm_precompile::{
-    utilities::right_pad, Error as PrecompileError, PrecompileOutput, PrecompileResult,
+    Error as PrecompileError, PrecompileOutput, PrecompileResult, utilities::right_pad,
 };
 
 openvm::entry!(main);
@@ -39,6 +42,7 @@ pub fn main() {
         let recovered = ec_recover_run(&Bytes::from(input), 3000).unwrap();
         assert_eq!(recovered.bytes.as_ref(), expected_address);
     }
+
 }
 
 // OpenVM version of ecrecover precompile.
