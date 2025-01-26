@@ -277,4 +277,6 @@ pub enum Rv32Phantom {
     HintInput = 0x20,
     /// Peek string from memory and print it to stdout.
     PrintStr,
+    /// Prepare given amount of random numbers for hinting.
+    HintRandom,
 }
