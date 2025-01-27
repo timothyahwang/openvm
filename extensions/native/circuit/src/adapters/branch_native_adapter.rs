@@ -20,6 +20,7 @@ use openvm_circuit::{
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_instructions::{instruction::Instruction, program::DEFAULT_PC_STEP};
+use openvm_native_compiler::conversion::AS;
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::BaseAir,
@@ -90,6 +91,18 @@ impl<AB: InteractionBuilder> VmAdapterAir<AB> for BranchNativeAdapterAir {
             timestamp_delta += 1;
             timestamp + AB::F::from_canonical_usize(timestamp_delta - 1)
         };
+
+        // check that d and e are in {0, 4}
+        let d = cols.reads_aux[0].address.address_space;
+        let e = cols.reads_aux[1].address.address_space;
+        builder.assert_eq(
+            d * (d - AB::F::from_canonical_u32(AS::Native as u32)),
+            AB::F::ZERO,
+        );
+        builder.assert_eq(
+            e * (e - AB::F::from_canonical_u32(AS::Native as u32)),
+            AB::F::ZERO,
+        );
 
         self.memory_bridge
             .read_or_immediate(

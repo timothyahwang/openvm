@@ -11,9 +11,10 @@ use openvm_circuit::{
     },
     system::{
         memory::{
-            offline_checker::{MemoryBridge, MemoryReadAuxCols, MemoryWriteAuxCols},
-            MemoryAddress, MemoryController, OfflineMemory, RecordId,
+            offline_checker::{MemoryBridge, MemoryReadOrImmediateAuxCols, MemoryWriteAuxCols},
+            MemoryAddress, MemoryController, OfflineMemory,
         },
+        native_adapter::{NativeReadRecord, NativeWriteRecord},
         program::ProgramBus,
     },
 };
@@ -25,38 +26,21 @@ use openvm_stark_backend::{
     p3_air::BaseAir,
     p3_field::{Field, FieldAlgebra, PrimeField32},
 };
-use serde::{Deserialize, Serialize};
-use serde_big_array::BigArray;
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct VectorReadRecord<const NUM_READS: usize, const READ_SIZE: usize> {
-    #[serde(with = "BigArray")]
-    pub reads: [RecordId; NUM_READS],
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct VectorWriteRecord<const WRITE_SIZE: usize> {
-    pub from_state: ExecutionState<u32>,
-    pub writes: [RecordId; 1],
-}
-
-#[allow(dead_code)]
 #[derive(Debug)]
-pub struct ConvertAdapterChip<F: Field, const READ_SIZE: usize, const WRITE_SIZE: usize> {
-    pub air: ConvertAdapterAir<READ_SIZE, WRITE_SIZE>,
+pub struct AluNativeAdapterChip<F: Field> {
+    pub air: AluNativeAdapterAir,
     _marker: PhantomData<F>,
 }
 
-impl<F: PrimeField32, const READ_SIZE: usize, const WRITE_SIZE: usize>
-    ConvertAdapterChip<F, READ_SIZE, WRITE_SIZE>
-{
+impl<F: PrimeField32> AluNativeAdapterChip<F> {
     pub fn new(
         execution_bus: ExecutionBus,
         program_bus: ProgramBus,
         memory_bridge: MemoryBridge,
     ) -> Self {
         Self {
-            air: ConvertAdapterAir {
+            air: AluNativeAdapterAir {
                 execution_bridge: ExecutionBridge::new(execution_bus, program_bus),
                 memory_bridge,
             },
@@ -67,33 +51,31 @@ impl<F: PrimeField32, const READ_SIZE: usize, const WRITE_SIZE: usize>
 
 #[repr(C)]
 #[derive(AlignedBorrow)]
-pub struct ConvertAdapterCols<T, const READ_SIZE: usize, const WRITE_SIZE: usize> {
+pub struct AluNativeAdapterCols<T> {
     pub from_state: ExecutionState<T>,
     pub a_pointer: T,
     pub b_pointer: T,
-    pub writes_aux: [MemoryWriteAuxCols<T, WRITE_SIZE>; 1],
-    pub reads_aux: [MemoryReadAuxCols<T>; 1],
+    pub c_pointer: T,
+    pub e_as: T,
+    pub f_as: T,
+    pub reads_aux: [MemoryReadOrImmediateAuxCols<T>; 2],
+    pub write_aux: MemoryWriteAuxCols<T, 1>,
 }
 
 #[derive(Clone, Copy, Debug, derive_new::new)]
-pub struct ConvertAdapterAir<const READ_SIZE: usize, const WRITE_SIZE: usize> {
+pub struct AluNativeAdapterAir {
     pub(super) execution_bridge: ExecutionBridge,
     pub(super) memory_bridge: MemoryBridge,
 }
 
-impl<F: Field, const READ_SIZE: usize, const WRITE_SIZE: usize> BaseAir<F>
-    for ConvertAdapterAir<READ_SIZE, WRITE_SIZE>
-{
+impl<F: Field> BaseAir<F> for AluNativeAdapterAir {
     fn width(&self) -> usize {
-        ConvertAdapterCols::<F, READ_SIZE, WRITE_SIZE>::width()
+        AluNativeAdapterCols::<F>::width()
     }
 }
 
-impl<AB: InteractionBuilder, const READ_SIZE: usize, const WRITE_SIZE: usize> VmAdapterAir<AB>
-    for ConvertAdapterAir<READ_SIZE, WRITE_SIZE>
-{
-    type Interface =
-        BasicAdapterInterface<AB::Expr, MinimalInstruction<AB::Expr>, 1, 1, READ_SIZE, WRITE_SIZE>;
+impl<AB: InteractionBuilder> VmAdapterAir<AB> for AluNativeAdapterAir {
+    type Interface = BasicAdapterInterface<AB::Expr, MinimalInstruction<AB::Expr>, 2, 1, 1, 1>;
 
     fn eval(
         &self,
@@ -101,7 +83,7 @@ impl<AB: InteractionBuilder, const READ_SIZE: usize, const WRITE_SIZE: usize> Vm
         local: &[AB::Var],
         ctx: AdapterAirContext<AB::Expr, Self::Interface>,
     ) {
-        let cols: &ConvertAdapterCols<_, READ_SIZE, WRITE_SIZE> = local.borrow();
+        let cols: &AluNativeAdapterCols<_> = local.borrow();
         let timestamp = cols.from_state.timestamp;
         let mut timestamp_delta = 0usize;
         let mut timestamp_pp = || {
@@ -109,24 +91,32 @@ impl<AB: InteractionBuilder, const READ_SIZE: usize, const WRITE_SIZE: usize> Vm
             timestamp + AB::F::from_canonical_usize(timestamp_delta - 1)
         };
 
-        let d = AB::Expr::TWO;
-        let e = AB::Expr::from_canonical_u32(AS::Native as u32);
+        let native_as = AB::Expr::from_canonical_u32(AS::Native as u32);
 
         self.memory_bridge
-            .read(
-                MemoryAddress::new(e.clone(), cols.b_pointer),
-                ctx.reads[0].clone(),
+            .read_or_immediate(
+                MemoryAddress::new(cols.e_as, cols.b_pointer),
+                ctx.reads[0][0].clone(),
                 timestamp_pp(),
                 &cols.reads_aux[0],
             )
             .eval(builder, ctx.instruction.is_valid.clone());
 
         self.memory_bridge
+            .read_or_immediate(
+                MemoryAddress::new(cols.f_as, cols.c_pointer),
+                ctx.reads[1][0].clone(),
+                timestamp_pp(),
+                &cols.reads_aux[1],
+            )
+            .eval(builder, ctx.instruction.is_valid.clone());
+
+        self.memory_bridge
             .write(
-                MemoryAddress::new(d.clone(), cols.a_pointer),
+                MemoryAddress::new(native_as.clone(), cols.a_pointer),
                 ctx.writes[0].clone(),
                 timestamp_pp(),
-                &cols.writes_aux[0],
+                &cols.write_aux,
             )
             .eval(builder, ctx.instruction.is_valid.clone());
 
@@ -136,9 +126,10 @@ impl<AB: InteractionBuilder, const READ_SIZE: usize, const WRITE_SIZE: usize> Vm
                 [
                     cols.a_pointer.into(),
                     cols.b_pointer.into(),
-                    AB::Expr::ZERO,
-                    d,
-                    e,
+                    cols.c_pointer.into(),
+                    native_as.clone(),
+                    cols.e_as.into(),
+                    cols.f_as.into(),
                 ],
                 cols.from_state,
                 AB::F::from_canonical_usize(timestamp_delta),
@@ -148,18 +139,16 @@ impl<AB: InteractionBuilder, const READ_SIZE: usize, const WRITE_SIZE: usize> Vm
     }
 
     fn get_from_pc(&self, local: &[AB::Var]) -> AB::Var {
-        let cols: &ConvertAdapterCols<_, READ_SIZE, WRITE_SIZE> = local.borrow();
+        let cols: &AluNativeAdapterCols<_> = local.borrow();
         cols.from_state.pc
     }
 }
 
-impl<F: PrimeField32, const READ_SIZE: usize, const WRITE_SIZE: usize> VmAdapterChip<F>
-    for ConvertAdapterChip<F, READ_SIZE, WRITE_SIZE>
-{
-    type ReadRecord = VectorReadRecord<1, READ_SIZE>;
-    type WriteRecord = VectorWriteRecord<WRITE_SIZE>;
-    type Air = ConvertAdapterAir<READ_SIZE, WRITE_SIZE>;
-    type Interface = BasicAdapterInterface<F, MinimalInstruction<F>, 1, 1, READ_SIZE, WRITE_SIZE>;
+impl<F: PrimeField32> VmAdapterChip<F> for AluNativeAdapterChip<F> {
+    type ReadRecord = NativeReadRecord<F, 2>;
+    type WriteRecord = NativeWriteRecord<F, 1>;
+    type Air = AluNativeAdapterAir;
+    type Interface = BasicAdapterInterface<F, MinimalInstruction<F>, 2, 1, 1, 1>;
 
     fn preprocess(
         &mut self,
@@ -169,23 +158,33 @@ impl<F: PrimeField32, const READ_SIZE: usize, const WRITE_SIZE: usize> VmAdapter
         <Self::Interface as VmAdapterInterface<F>>::Reads,
         Self::ReadRecord,
     )> {
-        let Instruction { b, e, .. } = *instruction;
+        let Instruction { b, c, e, f, .. } = *instruction;
 
-        let y_val = memory.read::<READ_SIZE>(e, b);
+        let reads = vec![memory.read::<1>(e, b), memory.read::<1>(f, c)];
+        let i_reads: [_; 2] = std::array::from_fn(|i| reads[i].1);
 
-        Ok(([y_val.1], Self::ReadRecord { reads: [y_val.0] }))
+        Ok((
+            i_reads,
+            Self::ReadRecord {
+                reads: reads.try_into().unwrap(),
+            },
+        ))
     }
 
     fn postprocess(
         &mut self,
         memory: &mut MemoryController<F>,
-        instruction: &Instruction<F>,
+        _instruction: &Instruction<F>,
         from_state: ExecutionState<u32>,
         output: AdapterRuntimeContext<F, Self::Interface>,
         _read_record: &Self::ReadRecord,
     ) -> Result<(ExecutionState<u32>, Self::WriteRecord)> {
-        let Instruction { a, d, .. } = *instruction;
-        let (write_id, _) = memory.write::<WRITE_SIZE>(d, a, output.writes[0]);
+        let Instruction { a, .. } = *_instruction;
+        let writes = vec![memory.write(
+            F::from_canonical_u32(AS::Native as u32),
+            a,
+            output.writes[0],
+        )];
 
         Ok((
             ExecutionState {
@@ -194,7 +193,7 @@ impl<F: PrimeField32, const READ_SIZE: usize, const WRITE_SIZE: usize> VmAdapter
             },
             Self::WriteRecord {
                 from_state,
-                writes: [write_id],
+                writes: writes.try_into().unwrap(),
             },
         ))
     }
@@ -206,18 +205,24 @@ impl<F: PrimeField32, const READ_SIZE: usize, const WRITE_SIZE: usize> VmAdapter
         write_record: Self::WriteRecord,
         memory: &OfflineMemory<F>,
     ) {
+        let row_slice: &mut AluNativeAdapterCols<_> = row_slice.borrow_mut();
         let aux_cols_factory = memory.aux_cols_factory();
-        let row_slice: &mut ConvertAdapterCols<_, READ_SIZE, WRITE_SIZE> = row_slice.borrow_mut();
-
-        let read = memory.record_by_id(read_record.reads[0]);
-        let write = memory.record_by_id(write_record.writes[0]);
 
         row_slice.from_state = write_record.from_state.map(F::from_canonical_u32);
-        row_slice.a_pointer = write.pointer;
-        row_slice.b_pointer = read.pointer;
 
-        aux_cols_factory.generate_read_aux(read, &mut row_slice.reads_aux[0]);
-        aux_cols_factory.generate_write_aux(write, &mut row_slice.writes_aux[0]);
+        row_slice.a_pointer = memory.record_by_id(write_record.writes[0].0).pointer;
+        row_slice.b_pointer = memory.record_by_id(read_record.reads[0].0).pointer;
+        row_slice.c_pointer = memory.record_by_id(read_record.reads[1].0).pointer;
+        row_slice.e_as = memory.record_by_id(read_record.reads[0].0).address_space;
+        row_slice.f_as = memory.record_by_id(read_record.reads[1].0).address_space;
+
+        for (i, x) in read_record.reads.iter().enumerate() {
+            let read = memory.record_by_id(x.0);
+            aux_cols_factory.generate_read_or_immediate_aux(read, &mut row_slice.reads_aux[i]);
+        }
+
+        let write = memory.record_by_id(write_record.writes[0].0);
+        aux_cols_factory.generate_write_aux(write, &mut row_slice.write_aux);
     }
 
     fn air(&self) -> &Self::Air {
