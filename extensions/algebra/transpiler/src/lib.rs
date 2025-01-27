@@ -84,16 +84,22 @@ impl<F: PrimeField32> TranspilerExtension<F> for ModularTranspilerExtension {
                     2 => Rv32ModularArithmeticOpcode::SETUP_ISEQ,
                     _ => panic!("invalid opcode"),
                 };
-                Some(Instruction::new(
-                    VmOpcode::from_usize(local_opcode.global_opcode().as_usize() + mod_idx_shift),
-                    F::from_canonical_usize(RV32_REGISTER_NUM_LIMBS * dec_insn.rd),
-                    F::from_canonical_usize(RV32_REGISTER_NUM_LIMBS * dec_insn.rs1),
-                    F::ZERO, // rs2 = 0
-                    F::ONE,  // d_as = 1
-                    F::TWO,  // e_as = 2
-                    F::ZERO,
-                    F::ZERO,
-                ))
+                if local_opcode == Rv32ModularArithmeticOpcode::SETUP_ISEQ && dec_insn.rd == 0 {
+                    panic!("SETUP_ISEQ is not valid for rd = x0");
+                } else {
+                    Some(Instruction::new(
+                        VmOpcode::from_usize(
+                            local_opcode.global_opcode().as_usize() + mod_idx_shift,
+                        ),
+                        F::from_canonical_usize(RV32_REGISTER_NUM_LIMBS * dec_insn.rd),
+                        F::from_canonical_usize(RV32_REGISTER_NUM_LIMBS * dec_insn.rs1),
+                        F::ZERO, // rs2 = 0
+                        F::ONE,  // d_as = 1
+                        F::TWO,  // e_as = 2
+                        F::ZERO,
+                        F::ZERO,
+                    ))
+                }
             } else {
                 let global_opcode = match ModArithBaseFunct7::from_repr(base_funct7) {
                     Some(ModArithBaseFunct7::AddMod) => {
@@ -119,7 +125,11 @@ impl<F: PrimeField32> TranspilerExtension<F> for ModularTranspilerExtension {
                     _ => unimplemented!(),
                 };
                 let global_opcode = global_opcode + mod_idx_shift;
-                Some(from_r_type(global_opcode, 2, &dec_insn))
+                // The only opcode in this extension which can write to rd is `IsEqMod`
+                // so we cannot allow rd to be zero in this case.
+                let allow_rd_zero =
+                    ModArithBaseFunct7::from_repr(base_funct7) != Some(ModArithBaseFunct7::IsEqMod);
+                Some(from_r_type(global_opcode, 2, &dec_insn, allow_rd_zero))
             }
         };
         instruction.map(TranspilerOutput::one_to_one)
@@ -189,7 +199,7 @@ impl<F: PrimeField32> TranspilerExtension<F> for Fp2TranspilerExtension {
                     _ => unimplemented!(),
                 };
                 let global_opcode = global_opcode + complex_idx_shift;
-                Some(from_r_type(global_opcode, 2, &dec_insn))
+                Some(from_r_type(global_opcode, 2, &dec_insn, true))
             }
         };
         instruction.map(TranspilerOutput::one_to_one)
