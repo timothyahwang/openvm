@@ -7,7 +7,6 @@ use std::{
 
 use derive_more::derive::From;
 use getset::Getters;
-use itertools::Itertools;
 #[cfg(feature = "bench-metrics")]
 use metrics::counter;
 use openvm_circuit_derive::{AnyEnum, InstructionExecutor};
@@ -15,7 +14,7 @@ use openvm_circuit_primitives::{
     utils::next_power_of_two_or_zero,
     var_range::{SharedVariableRangeCheckerChip, VariableRangeCheckerBus},
 };
-use openvm_circuit_primitives_derive::{BytesStateful, Chip, ChipUsageGetter};
+use openvm_circuit_primitives_derive::{Chip, ChipUsageGetter};
 use openvm_instructions::{
     program::Program, LocalOpcode, PhantomDiscriminant, PublishOpcode, SystemOpcode, VmOpcode,
 };
@@ -25,7 +24,7 @@ use openvm_stark_backend::{
     p3_field::{FieldAlgebra, PrimeField32},
     p3_matrix::Matrix,
     prover::types::{AirProofInput, CommittedTraceData, ProofInput},
-    AirRef, Chip, ChipUsageGetter, Stateful,
+    AirRef, Chip, ChipUsageGetter,
 };
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
@@ -39,7 +38,6 @@ use crate::metrics::VmMetrics;
 use crate::system::{
     connector::VmConnectorChip,
     memory::{
-        interface::MemoryInterface,
         merkle::{DirectCompressionBus, MemoryMerkleBus},
         offline_checker::{MemoryBridge, MemoryBus},
         online::MemoryLogEntry,
@@ -406,26 +404,6 @@ impl<E, P> VmInventory<E, P> {
     }
 }
 
-impl<E: Stateful<Vec<u8>>, P: Stateful<Vec<u8>>> Stateful<VmInventoryState> for VmInventory<E, P> {
-    fn load_state(&mut self, state: VmInventoryState) {
-        for (e, s) in self.executors.iter_mut().zip_eq(state.executors) {
-            e.load_state(s)
-        }
-        for (p, s) in self.periphery.iter_mut().zip_eq(state.periphery) {
-            p.load_state(s)
-        }
-    }
-
-    fn store_state(&self) -> VmInventoryState {
-        let executors = self.executors.iter().map(|e| e.store_state()).collect();
-        let periphery = self.periphery.iter().map(|p| p.store_state()).collect();
-        VmInventoryState {
-            executors,
-            periphery,
-        }
-    }
-}
-
 impl VmInventoryTraceHeights {
     /// Round all trace heights to the next power of two. This will round trace heights of 0 to 1.
     pub fn round_to_next_power_of_two(&mut self) {
@@ -548,37 +526,13 @@ impl<F: PrimeField32> SystemBase<F> {
     }
 }
 
-impl<F: PrimeField32> Stateful<SystemBaseState<F>> for SystemBase<F> {
-    fn load_state(&mut self, state: SystemBaseState<F>) {
-        self.range_checker_chip.load_state(state.range_checker_chip);
-        if let Some(initial_memory) = state.initial_memory {
-            self.memory_controller.set_initial_memory(initial_memory);
-        }
-        self.memory_controller.set_memory_logs(state.memory_logs);
-        self.connector_chip.load_state(state.connector_chip);
-        self.program_chip.load_state(state.program_chip);
-    }
-    fn store_state(&self) -> SystemBaseState<F> {
-        SystemBaseState {
-            range_checker_chip: self.range_checker_chip.store_state(),
-            initial_memory: match &self.memory_controller.interface_chip {
-                MemoryInterface::Volatile { .. } => None,
-                MemoryInterface::Persistent { initial_memory, .. } => Some(initial_memory.clone()),
-            },
-            memory_logs: self.memory_controller.get_memory_logs(),
-            connector_chip: self.connector_chip.store_state(),
-            program_chip: self.program_chip.store_state(),
-        }
-    }
-}
-
-#[derive(ChipUsageGetter, Chip, AnyEnum, From, InstructionExecutor, BytesStateful)]
+#[derive(ChipUsageGetter, Chip, AnyEnum, From, InstructionExecutor)]
 pub enum SystemExecutor<F: PrimeField32> {
     PublicValues(PublicValuesChip<F>),
     Phantom(RefCell<PhantomChip<F>>),
 }
 
-#[derive(ChipUsageGetter, Chip, AnyEnum, From, BytesStateful)]
+#[derive(ChipUsageGetter, Chip, AnyEnum, From)]
 pub enum SystemPeriphery<F: PrimeField32> {
     /// Poseidon2 chip with direct compression interactions
     Poseidon2(Poseidon2PeripheryChip<F>),
@@ -1118,22 +1072,6 @@ impl<F: PrimeField32, E, P> VmChipComplex<F, E, P> {
             metrics.chip_heights =
                 itertools::izip!(self.air_names(), self.current_trace_heights()).collect();
             metrics.emit();
-        }
-    }
-}
-
-impl<F: PrimeField32, E: Stateful<Vec<u8>>, P: Stateful<Vec<u8>>> Stateful<VmChipComplexState<F>>
-    for VmChipComplex<F, E, P>
-{
-    fn load_state(&mut self, state: VmChipComplexState<F>) {
-        self.base.load_state(state.base);
-        self.inventory.load_state(state.inventory);
-    }
-
-    fn store_state(&self) -> VmChipComplexState<F> {
-        VmChipComplexState {
-            base: self.base.store_state(),
-            inventory: self.inventory.store_state(),
         }
     }
 }

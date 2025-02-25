@@ -11,7 +11,7 @@ use openvm_circuit::{
     arch::{
         SystemConfig, SystemExecutor, SystemPeriphery, VmChipComplex, VmConfig, VmInventoryError,
     },
-    circuit_derive::{BytesStateful, Chip, ChipUsageGetter},
+    circuit_derive::{Chip, ChipUsageGetter},
     derive::{AnyEnum, InstructionExecutor},
 };
 use openvm_ecc_circuit::{
@@ -63,7 +63,7 @@ pub struct SdkVmConfig {
     pub castf: Option<CastFExtension>,
 }
 
-#[derive(ChipUsageGetter, Chip, InstructionExecutor, From, AnyEnum, BytesStateful)]
+#[derive(ChipUsageGetter, Chip, InstructionExecutor, From, AnyEnum)]
 pub enum SdkVmConfigExecutor<F: PrimeField32> {
     #[any_enum]
     System(SystemExecutor<F>),
@@ -93,7 +93,7 @@ pub enum SdkVmConfigExecutor<F: PrimeField32> {
     CastF(CastFExtensionExecutor<F>),
 }
 
-#[derive(From, ChipUsageGetter, Chip, AnyEnum, BytesStateful)]
+#[derive(From, ChipUsageGetter, Chip, AnyEnum)]
 pub enum SdkVmConfigPeriphery<F: PrimeField32> {
     #[any_enum]
     System(SystemPeriphery<F>),
