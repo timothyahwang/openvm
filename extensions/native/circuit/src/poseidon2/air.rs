@@ -114,10 +114,7 @@ impl<AB: InteractionBuilder, const SBOX_REGISTERS: usize> Air<AB>
         builder
             .when(end.clone())
             .assert_zero(next.incorporate_sibling);
-        builder
-            .when(end.clone())
-            .when(next.incorporate_row)
-            .assert_one(next.start_top_level);
+        builder.assert_eq(end.clone() * next.incorporate_row, next.start_top_level);
 
         // ensure that inside row rows are actually contiguous
         builder
@@ -420,7 +417,6 @@ impl<AB: InteractionBuilder, const SBOX_REGISTERS: usize> Air<AB>
 
         let mut when_top_level_not_end =
             builder.when(incorporate_row + incorporate_sibling - end_top_level);
-
         when_top_level_not_end
             .assert_eq(next_top_level_specific.dim_base_pointer, dim_base_pointer);
 
