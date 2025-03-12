@@ -710,22 +710,6 @@ classes of pairing friendly elliptic curves. For a curve `C` to be supported, th
 curves are BN254 and BLS12-381. The extension operates on address spaces `1` and `2`, meaning all memory cells are
 constrained to be bytes.
 
-We lay out `Fp12` in memory as `c0, ..., c5` where `c_i: Fp2` and the `Fp12` element is `c0 + c1 w + ... + c5 w^5` where
-`w^6 = C::XI` in `Fp2`, where `C::Xi: Fp2` is an associated constant. Both `UnevaluatedLine<Fp2>` and
-`EvaluatedLine<Fp2>` are laid out in memory the same as `[Fp2; 2]`. For more detailed descriptions of the instructions,
-refer to [the detailed spec](https://hackmd.io/NjMhWt1HTDOB7TIKmTOMFw?view).
-
-| Name                            | Operands    | Description                                                                                                                                                                                                                                                                                                                |
-| ------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| MILLER_DOUBLE_STEP\<C\>         | `a,b,_,1,2` | Let `S: EcPoint<Fp2>` be read starting from `[r32{0}(b)]_2`. The output `miller_double_step(S): (EcPoint<Fp2>, UnevaluatedLine<Fp2>)` is written contiguously to memory starting at `[r32{0}(a)]_2`.                                                                                                                       |
-| MILLER_DOUBLE_AND_ADD_STEP\<C\> | `a,b,c,1,2` | Let `S: EcPoint<Fp2>` be read starting from `[r32{0}(b)]_2` and `Q: EcPoint<Fp2>` be read starting from `[r32{0}(c)]_2`. The output `miller_double_and_add_step(S, Q): (EcPoint<Fp2>, UnevaluatedLine<Fp2>, UnevaluatedLine<Fp2>)` is written contiguously to memory starting at `[r32{0}(a)]_2`.                          |
-| FP12_MUL\<C\>                   | `a,b,c,1,2` | Set `r32_fp12(a) = r32_fp12(b) * r32_fp12(c)` where `r32_fp12(a)` is 6 `Fp2` elements laid out contiguously in memory starting at `[r32{0}(a)]_2`.                                                                                                                                                                         |
-| EVALUATE_LINE\<C\>              | `a,b,c,1,2` | Let `line: UnevaluatedLine<Fp2>` be read starting from `[r32{0}(b)]_2` and `(x_over_y, x_inv): (Fp, Fp)` be read starting from `[r32{0}(c)]_2`. The output `evaluate_line(line, x_over_y, x_inv): EvaluatedLine<Fp2>` is written contiguously to memory starting at `[r32{0}(a)]_2`.                                       |
-| MUL_013_BY_013\<C\>             | `a,b,c,1,2` | Let `line_0: EvaluatedLine<Fp2>` be read starting from `[r32{0}(b)]_2` and `line_1: EvaluatedLine<Fp2>` be read starting from `[r32{0}(c)]_2`. The output `mul_013_by_013(line_0, line_1): [Fp2; 5]` is written contiguously to memory starting at `[r32{0}(a)]_2`. Only enabled if the sextic twist of `C` is **D-type**. |
-| MUL_BY_01234\<C\>               | `a,b,c,1,2` | Let `f: Fp12` be read starting from `[r32{0}(b)]_2` and `x: [Fp2; 5]` be read starting from `[r32{0}(c)]_2`. The output `mul_by_01234(f, line): Fp12` is written contiguously to memory starting at `[r32{0}(a)]_2`. Only enabled if the sextic twist of `C` is **D-type**.                                                |
-| MUL_023_BY_023\<C\>             | `a,b,c,1,2` | Let `line_0: EvaluatedLine<Fp2>` be read starting from `[r32{0}(b)]_2` and `line_1: EvaluatedLine<Fp2>` be read starting from `[r32{0}(c)]_2`. The output `mul_023_by_023(line_0, line_1): [Fp2; 5]` is written contiguously to memory starting at `[r32{0}(a)]_2`. Only enabled if the sextic twist of `C` is **M-type**. |
-| MUL_BY_02345\<C\>               | `a,b,c,1,2` | Let `f: Fp12` be read starting from `[r32{0}(b)]_2` and `x: [Fp2; 5]` be read starting from `[r32{0}(c)]_2`. The output `mul_by_02345(f, line): Fp12` is written contiguously to memory starting at `[r32{0}(a)]_2`. Only enabled if the sextic twist of `C` is **M-type**.                                                |
-
 #### Phantom Sub-Instructions
 
 The pairing extension defines the following phantom sub-instructions.
