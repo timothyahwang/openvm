@@ -97,7 +97,7 @@ where
 
         builder.assert_bool(is_valid);
 
-        // composed = composed(rd_data) - rd[0]
+        // composed is the composition of 3 most significant limbs of rd
         let composed = rd
             .iter()
             .enumerate()
@@ -107,7 +107,11 @@ where
 
         let least_sig_limb = from_pc + AB::F::from_canonical_u32(DEFAULT_PC_STEP) - composed;
 
-        // rd_data is the final data needed
+        // rd_data is the final decomposition of `from_pc + DEFAULT_PC_STEP` we need.
+        // The range check on `least_sig_limb` also ensures that `rd_data` correctly represents `from_pc + DEFAULT_PC_STEP`.
+        // Specifically, if `rd_data` does not match the expected limb, then `least_sig_limb` becomes
+        // the real `least_sig_limb` plus the difference between `composed` and the three most significant limbs of `from_pc + DEFAULT_PC_STEP`.
+        // In that case, `least_sig_limb` >= 2^RV32_CELL_BITS.
         let rd_data = array::from_fn(|i| {
             if i == 0 {
                 least_sig_limb.clone()
@@ -130,7 +134,7 @@ where
 
         builder.assert_bool(imm_sign);
 
-        // constrain to_pc_least_sig_bit + 2 * to_pc_limbs = rs1 + imm as a i32 addition with 2 limbs
+        // Constrain to_pc_least_sig_bit + 2 * to_pc_limbs = rs1 + imm as a i32 addition with 2 limbs
         // RISC-V spec explicitly sets the least significant bit of `to_pc` to 0
         let rs1_limbs_01 = rs1[0] + rs1[1] * AB::F::from_canonical_u32(1 << RV32_CELL_BITS);
         let rs1_limbs_23 = rs1[2] + rs1[3] * AB::F::from_canonical_u32(1 << RV32_CELL_BITS);
