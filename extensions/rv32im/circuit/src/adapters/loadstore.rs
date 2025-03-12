@@ -216,6 +216,8 @@ impl<AB: InteractionBuilder> VmAdapterAir<AB> for Rv32LoadStoreAdapterAir {
         // This constraint ensures that the memory write only occurs when `is_valid == 1`.
         builder.assert_bool(write_count);
         builder.when(write_count).assert_one(is_valid.clone());
+
+        // Constrain that if `is_valid == 1` and `write_count == 0`, then `is_load == 1` and `rd_rs2_ptr == x0`
         builder
             .when(is_valid.clone() - write_count)
             .assert_one(is_load.clone());
