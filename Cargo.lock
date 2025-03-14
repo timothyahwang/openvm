@@ -3812,6 +3812,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "openvm-continuations"
+version = "1.0.0-rc.2"
+dependencies = [
+ "derivative",
+ "openvm-circuit",
+ "openvm-native-circuit",
+ "openvm-native-compiler",
+ "openvm-native-recursion",
+ "openvm-stark-backend",
+ "openvm-stark-sdk",
+ "serde",
+ "static_assertions",
+]
+
+[[package]]
 name = "openvm-custom-insn"
 version = "0.1.0"
 dependencies = [
@@ -4435,6 +4450,7 @@ dependencies = [
  "openvm-bigint-transpiler",
  "openvm-build",
  "openvm-circuit",
+ "openvm-continuations",
  "openvm-ecc-circuit",
  "openvm-ecc-transpiler",
  "openvm-keccak256-circuit",
