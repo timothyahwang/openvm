@@ -62,6 +62,7 @@ pub struct TopLevelRecord<F: Field> {
     pub incorporate_sibling: Option<IncorporateSiblingRecord<F>>,
 }
 
+#[repr(C)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound = "F: Field")]
 pub struct IncorporateSiblingRecord<F: Field> {
@@ -88,6 +89,7 @@ pub struct InsideRowRecord<F: Field> {
     pub p2_input: [F; 2 * CHUNK],
 }
 
+#[repr(C)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CellRecord {
     pub read: RecordId,
@@ -97,6 +99,7 @@ pub struct CellRecord {
     pub row_end: usize,
 }
 
+#[repr(C)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound = "F: Field")]
 pub struct SimplePoseidonRecord<F: Field> {
