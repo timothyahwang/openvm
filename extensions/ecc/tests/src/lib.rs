@@ -109,11 +109,21 @@ mod tests {
                 CurveConfig {
                     modulus: BigUint::from_str("115792089237316195423570985008687907853269984665640564039457584007913129639501")
                         .unwrap(),
-                    // unused, set to modulus
-                    scalar: BigUint::from_str("115792089237316195423570985008687907853269984665640564039457584007913129639501")
+                    // unused, set to 10e9 + 7
+                    scalar: BigUint::from_str("1000000007")
                         .unwrap(),
                     a: BigUint::ZERO,
                     b: BigUint::from_str("3").unwrap(),
+                },
+                CurveConfig {
+                    modulus: BigUint::from_radix_be(&hex!("ffffffffffffffffffffffffffffffff000000000000000000000001"), 256)
+                        .unwrap(),
+                    scalar: BigUint::from_radix_be(&hex!("ffffffffffffffffffffffffffff16a2e0b8f03e13dd29455c5c2a3d"), 256)
+                        .unwrap(),
+                    a: BigUint::from_radix_be(&hex!("fffffffffffffffffffffffffffffffefffffffffffffffffffffffe"), 256)
+                        .unwrap(),
+                    b: BigUint::from_radix_be(&hex!("b4050a850c04b3abf54132565044b0b7d7bfd8ba270b39432355ffb4"), 256)
+                        .unwrap(),
                 },
             ]);
 
@@ -124,8 +134,12 @@ mod tests {
             hex!("0100000000000000000000000000000000000000000000000000000000000000");
         let q_y: [u8; 32] =
             hex!("0200000000000000000000000000000000000000000000000000000000000000");
+        let r_x: [u8; 32] =
+            hex!("211D5C11D68032342211C256D3C1034AB99013327FBFB46BBD0C0EB700000000");
+        let r_y: [u8; 32] =
+            hex!("347E00859981D5446447075AA07543CDE6DF224CFB23F7B5886337BD00000000");
 
-        let coords = [p.x.to_bytes(), p.y.to_bytes(), q_x, q_y]
+        let coords = [p.x.to_bytes(), p.y.to_bytes(), q_x, q_y, r_x, r_y]
             .concat()
             .into_iter()
             .map(FieldAlgebra::from_canonical_u8)
@@ -156,11 +170,21 @@ mod tests {
                 CurveConfig {
                     modulus: BigUint::from_str("115792089237316195423570985008687907853269984665640564039457584007913129639501")
                         .unwrap(),
-                    // unused, set to modulus
-                    scalar: BigUint::from_str("115792089237316195423570985008687907853269984665640564039457584007913129639501")
+                    // unused, set to 10e9 + 7
+                    scalar: BigUint::from_str("1000000007")
                         .unwrap(),
                     a: BigUint::ZERO,
                     b: BigUint::from_str("3").unwrap(),
+                },
+                CurveConfig {
+                    modulus: BigUint::from_radix_be(&hex!("ffffffffffffffffffffffffffffffff000000000000000000000001"), 256)
+                        .unwrap(),
+                    scalar: BigUint::from_radix_be(&hex!("ffffffffffffffffffffffffffff16a2e0b8f03e13dd29455c5c2a3d"), 256)
+                        .unwrap(),
+                    a: BigUint::from_radix_be(&hex!("fffffffffffffffffffffffffffffffefffffffffffffffffffffffe"), 256)
+                        .unwrap(),
+                    b: BigUint::from_radix_be(&hex!("b4050a850c04b3abf54132565044b0b7d7bfd8ba270b39432355ffb4"), 256)
+                        .unwrap(),
                 },
             ]);
 
@@ -171,8 +195,12 @@ mod tests {
             hex!("0100000000000000000000000000000000000000000000000000000000000000");
         let q_y: [u8; 32] =
             hex!("0200000000000000000000000000000000000000000000000000000000000000");
+        let r_x: [u8; 32] =
+            hex!("211D5C11D68032342211C256D3C1034AB99013327FBFB46BBD0C0EB700000000");
+        let r_y: [u8; 32] =
+            hex!("347E00859981D5446447075AA07543CDE6DF224CFB23F7B5886337BD00000000");
 
-        let coords = [p.x.to_bytes(), p.y.to_bytes(), q_x, q_y]
+        let coords = [p.x.to_bytes(), p.y.to_bytes(), q_x, q_y, r_x, r_y]
             .concat()
             .into_iter()
             .map(FieldAlgebra::from_canonical_u8)
@@ -195,14 +223,26 @@ mod tests {
 
     #[ignore = "expected to infinite loop"]
     #[test]
-    fn test_decompress_invalid_hint_mycurve_possible() -> Result<()> {
-        test_decompress_invalid_specific_test("test_mycurve_possible")
+    fn test_decompress_invalid_hint_curvepoint5mod8_possible() -> Result<()> {
+        test_decompress_invalid_specific_test("test_curvepoint5mod8_possible")
     }
 
     #[ignore = "expected to infinite loop"]
     #[test]
-    fn test_decompress_invalid_hint_mycurve_impossible() -> Result<()> {
-        test_decompress_invalid_specific_test("test_mycurve_impossible")
+    fn test_decompress_invalid_hint_curvepoint5mod8_impossible() -> Result<()> {
+        test_decompress_invalid_specific_test("test_curvepoint5mod8_impossible")
+    }
+
+    #[ignore = "expected to infinite loop"]
+    #[test]
+    fn test_decompress_invalid_hint_curvepoint1mod4_possible() -> Result<()> {
+        test_decompress_invalid_specific_test("test_curvepoint1mod4_possible")
+    }
+
+    #[ignore = "expected to infinite loop"]
+    #[test]
+    fn test_decompress_invalid_hint_curvepoint1mod4_impossible() -> Result<()> {
+        test_decompress_invalid_specific_test("test_curvepoint1mod4_impossible")
     }
 
     #[test]
