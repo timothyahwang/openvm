@@ -1,4 +1,4 @@
-use std::{cell::RefCell, iter, ops::Deref, rc::Rc};
+use std::{cell::RefCell, cmp::min, iter, ops::Deref, rc::Rc};
 
 use itertools::{zip_eq, Itertools};
 use num_bigint::{BigInt, BigUint, Sign};
@@ -57,8 +57,10 @@ pub struct ExprBuilder {
     /// Number of limbs in canonical representation of the bigint field element.
     pub num_limbs: usize,
     proper_max: BigUint,
-    // The max bits to range check.
+    // The max bits that we can range check.
     pub range_checker_bits: usize,
+    // The max bits that carries are allowed to have.
+    pub max_carry_bits: usize,
 
     // The number of limbs of the quotient for each constraint.
     pub q_limbs: Vec<usize>,
@@ -87,10 +89,17 @@ pub struct ExprBuilder {
     needs_setup: bool,
 }
 
+// Number of bits in BabyBear modulus
+const MODULUS_BITS: usize = 31;
+
 impl ExprBuilder {
     pub fn new(config: ExprBuilderConfig, range_checker_bits: usize) -> Self {
         let prime_bigint = BigInt::from_biguint(Sign::Plus, config.modulus.clone());
         let proper_max = (BigUint::one() << (config.num_limbs * config.limb_bits)) - BigUint::one();
+        // Max carry bits to ensure constraints don't overflow
+        let max_carry_bits = MODULUS_BITS - config.limb_bits - 2;
+        // sanity
+        assert!(config.limb_bits + 2 < MODULUS_BITS);
         Self {
             prime: config.modulus.clone(),
             prime_bigint,
@@ -101,6 +110,7 @@ impl ExprBuilder {
             num_limbs: config.num_limbs,
             proper_max,
             range_checker_bits,
+            max_carry_bits: min(max_carry_bits, range_checker_bits),
             num_variables: 0,
             constants: vec![],
             q_limbs: vec![],
@@ -148,7 +158,7 @@ impl ExprBuilder {
         let num_limbs = borrowed.num_limbs;
         let limb_bits = borrowed.limb_bits;
         borrowed.num_input += 1;
-        let (num_input, range_checker_bits) = (borrowed.num_input, borrowed.range_checker_bits);
+        let (num_input, max_carry_bits) = (borrowed.num_input, borrowed.max_carry_bits);
         drop(borrowed);
         FieldVariable {
             expr: SymbolicExpr::Input(num_input - 1),
@@ -156,7 +166,7 @@ impl ExprBuilder {
             limb_max_abs: (1 << limb_bits) - 1,
             max_overflow_bits: limb_bits,
             expr_limbs: num_limbs,
-            range_checker_bits,
+            max_carry_bits,
         }
     }
 
@@ -195,7 +205,7 @@ impl ExprBuilder {
         let limb_bits = borrowed.limb_bits;
         let num_limbs = borrowed.num_limbs;
         let limbs = big_uint_to_num_limbs(&value, limb_bits, num_limbs);
-        let range_checker_bits = borrowed.range_checker_bits;
+        let max_carry_bits = borrowed.max_carry_bits;
         borrowed.constants.push((value.clone(), limbs));
         drop(borrowed);
 
@@ -205,7 +215,7 @@ impl ExprBuilder {
             limb_max_abs: (1 << limb_bits) - 1,
             max_overflow_bits: limb_bits,
             expr_limbs: num_limbs,
-            range_checker_bits,
+            max_carry_bits,
         }
     }
 
