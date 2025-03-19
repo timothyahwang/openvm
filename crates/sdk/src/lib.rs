@@ -26,7 +26,7 @@ pub use openvm_continuations::{
 use openvm_native_recursion::halo2::{
     utils::Halo2ParamsReader,
     wrapper::{EvmVerifier, Halo2WrapperProvingKey},
-    EvmProof,
+    RawEvmProof,
 };
 use openvm_stark_backend::{engine::StarkEngine, proof::Proof};
 use openvm_stark_sdk::{
@@ -54,7 +54,11 @@ pub mod prover;
 
 mod stdin;
 pub use stdin::*;
+
+use crate::types::EvmProof;
+
 pub mod fs;
+pub mod types;
 
 pub type NonRootCommittedExe = VmCommittedExe<SC>;
 
@@ -257,7 +261,8 @@ impl Sdk {
         evm_verifier: &EvmVerifier,
         evm_proof: &EvmProof,
     ) -> Result<u64> {
-        let gas_cost = Halo2WrapperProvingKey::evm_verify(evm_verifier, evm_proof)
+        let evm_proof: RawEvmProof = evm_proof.clone().try_into()?;
+        let gas_cost = Halo2WrapperProvingKey::evm_verify(evm_verifier, &evm_proof)
             .map_err(|reason| eyre::eyre!("Sdk::verify_evm_proof: {reason:?}"))?;
         Ok(gas_cost)
     }

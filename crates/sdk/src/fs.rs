@@ -1,15 +1,16 @@
 use std::{
-    fs::{create_dir_all, read, write},
+    fs::{create_dir_all, read, write, File},
     path::Path,
 };
 
 use eyre::Result;
 use openvm_circuit::arch::{instructions::exe::VmExe, ContinuationVmProof, VmConfig};
-use openvm_native_recursion::halo2::{wrapper::EvmVerifier, EvmProof};
+use openvm_native_recursion::halo2::wrapper::EvmVerifier;
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
     keygen::{AggProvingKey, AppProvingKey, AppVerifyingKey},
+    types::EvmProof,
     F, SC,
 };
 
@@ -62,11 +63,13 @@ pub fn write_agg_pk_to_file<P: AsRef<Path>>(agg_pk: AggProvingKey, path: P) -> R
 }
 
 pub fn read_evm_proof_from_file<P: AsRef<Path>>(path: P) -> Result<EvmProof> {
-    read_from_file_bitcode(path)
+    let proof: EvmProof = serde_json::from_reader(File::open(path)?)?;
+    Ok(proof)
 }
 
 pub fn write_evm_proof_to_file<P: AsRef<Path>>(proof: EvmProof, path: P) -> Result<()> {
-    write_to_file_bitcode(path, proof)
+    serde_json::to_writer(File::create(path)?, &proof)?;
+    Ok(())
 }
 
 pub fn read_evm_verifier_from_file<P: AsRef<Path>>(path: P) -> Result<EvmVerifier> {
