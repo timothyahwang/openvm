@@ -1,5 +1,9 @@
 use std::io::{self, Cursor, Read, Result, Write};
 
+use openvm_circuit::{
+    arch::ContinuationVmProof, system::memory::tree::public_values::UserPublicValuesProof,
+};
+use openvm_continuations::verifier::root::types::RootVmVerifierInput;
 use openvm_native_compiler::ir::DIGEST_SIZE;
 use openvm_native_recursion::hints::{InnerBatchOpening, InnerFriProof, InnerQueryProof};
 use openvm_stark_backend::{
@@ -40,59 +44,72 @@ pub trait Encode {
 pub trait Decode: Sized {
     /// Reads and decodes a value from the given reader.
     fn decode<R: Read>(reader: &mut R) -> Result<Self>;
-}
-
-// General Note [jpw]: even though `SC` is a concrete type below, for typedefs that rely on associated types such as PcsProof<SC>,
-// Rust will prevent you from implementing Encode on the typedef, (I think) because if the SC trait changes, then the associated
-// type may change. In these cases, either impl Encode on the concrete type, or make a separate `encode_something` function.
-
-pub fn encode_proof_to_bytes(proof: &Proof<SC>) -> Result<Vec<u8>> {
-    let mut buffer = Vec::new();
-    encode_proof(proof, &mut buffer)?;
-    Ok(buffer)
-}
-
-pub fn decode_proof_from_bytes(bytes: &[u8]) -> Result<Proof<SC>> {
-    let mut reader = Cursor::new(bytes);
-    decode_proof(&mut reader)
+    fn decode_from_bytes(bytes: &[u8]) -> Result<Self> {
+        let mut reader = Cursor::new(bytes);
+        Self::decode(&mut reader)
+    }
 }
 
 // ==================== Encode implementation ====================
 
-// We need to know:
-// - Pcs is TwoAdicFriPcs
-// - Com<SC>: Into<[F; 8]>
-// For simplicity, we only implement for fixed `BabyBearPoseidon2Config`
-//
-/// Encode a proof using FRI as the PCS with `BabyBearPoseidon2Config`.
-/// The Merkle tree hashes have digest `[F; 8]`.
-/// ```
-/// pub struct Proof<SC: StarkGenericConfig> {
-///     pub commitments: Commitments<Com<SC>>,
-///     pub opening: OpeningProof<PcsProof<SC>, SC::Challenge>,
-///     pub per_air: Vec<AirProofData<Val<SC>, SC::Challenge>>,
-///     pub rap_phase_seq_proof: Option<RapPhaseSeqPartialProof<SC>>,
-/// }
-/// ```
-pub fn encode_proof<W: Write>(proof: &Proof<SC>, writer: &mut W) -> Result<()> {
-    writer.write_all(&CODEC_VERSION.to_le_bytes())?;
-    // Encode commitments
-    encode_commitments(&proof.commitments.main_trace, writer)?;
-    encode_commitments(&proof.commitments.after_challenge, writer)?;
-    let quotient_commit: [F; DIGEST_SIZE] = proof.commitments.quotient.into();
-    quotient_commit.encode(writer)?;
+impl Encode for ContinuationVmProof<SC> {
+    fn encode<W: Write>(&self, writer: &mut W) -> Result<()> {
+        encode_slice(&self.per_segment, writer)?;
+        self.user_public_values.encode(writer)
+    }
+}
 
-    // Encode OpeningProof
-    encode_opening_proof(&proof.opening, writer)?;
+impl Encode for UserPublicValuesProof<DIGEST_SIZE, F> {
+    fn encode<W: Write>(&self, writer: &mut W) -> Result<()> {
+        encode_slice(&self.proof, writer)?;
+        encode_slice(&self.public_values, writer)?;
+        self.public_values_commit.encode(writer)
+    }
+}
 
-    // Encode per_air data
-    encode_slice(&proof.per_air, writer)?;
+impl Encode for RootVmVerifierInput<SC> {
+    fn encode<W: Write>(&self, writer: &mut W) -> Result<()> {
+        encode_slice(&self.proofs, writer)?;
+        encode_slice(&self.public_values, writer)
+    }
+}
 
-    writer.write_all(&[RapPhaseSeqKind::FriLogUp as u8])?;
-    // Encode logup witness
-    proof.rap_phase_seq_proof.encode(writer)?;
+impl Encode for Proof<SC> {
+    // We need to know:
+    // - Pcs is TwoAdicFriPcs
+    // - Com<SC>: Into<[F; 8]>
+    // For simplicity, we only implement for fixed `BabyBearPoseidon2Config`
+    //
+    /// Encode a proof using FRI as the PCS with `BabyBearPoseidon2Config`.
+    /// The Merkle tree hashes have digest `[F; 8]`.
+    /// ```
+    /// pub struct Proof<SC: StarkGenericConfig> {
+    ///     pub commitments: Commitments<Com<SC>>,
+    ///     pub opening: OpeningProof<PcsProof<SC>, SC::Challenge>,
+    ///     pub per_air: Vec<AirProofData<Val<SC>, SC::Challenge>>,
+    ///     pub rap_phase_seq_proof: Option<RapPhaseSeqPartialProof<SC>>,
+    /// }
+    /// ```
+    fn encode<W: Write>(&self, writer: &mut W) -> Result<()> {
+        writer.write_all(&CODEC_VERSION.to_le_bytes())?;
+        // Encode commitments
+        encode_commitments(&self.commitments.main_trace, writer)?;
+        encode_commitments(&self.commitments.after_challenge, writer)?;
+        let quotient_commit: [F; DIGEST_SIZE] = self.commitments.quotient.into();
+        quotient_commit.encode(writer)?;
 
-    Ok(())
+        // Encode OpeningProof
+        encode_opening_proof(&self.opening, writer)?;
+
+        // Encode per_air data
+        encode_slice(&self.per_air, writer)?;
+
+        writer.write_all(&[RapPhaseSeqKind::FriLogUp as u8])?;
+        // Encode logup witness
+        self.rap_phase_seq_proof.encode(writer)?;
+
+        Ok(())
+    }
 }
 
 // Helper function to encode OpeningProof
@@ -295,58 +312,95 @@ impl Encode for usize {
 
 // ============ Decode implementation =============
 
-/// Decode a proof using FRI as the PCS with `BabyBearPoseidon2Config`.
-pub fn decode_proof<R: Read>(reader: &mut R) -> Result<Proof<SC>> {
-    let mut version_bytes = [0u8; 4];
-    reader.read_exact(&mut version_bytes)?;
-    let version = u32::from_le_bytes(version_bytes);
-
-    if version != CODEC_VERSION {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            format!(
-                "Invalid codec version. Expected {}, got {}",
-                CODEC_VERSION, version
-            ),
-        ));
+impl Decode for ContinuationVmProof<SC> {
+    fn decode<R: Read>(reader: &mut R) -> Result<Self> {
+        let per_segment = decode_vec(reader)?;
+        let user_public_values = UserPublicValuesProof::decode(reader)?;
+        Ok(Self {
+            per_segment,
+            user_public_values,
+        })
     }
+}
 
-    // Decode commitments
-    let main_trace = decode_commitments(reader)?;
-    let after_challenge = decode_commitments(reader)?;
-    let quotient = decode_commitment(reader)?;
-
-    let commitments = Commitments {
-        main_trace,
-        after_challenge,
-        quotient,
-    };
-
-    // Decode OpeningProof
-    let opening = decode_opening_proof(reader)?;
-
-    // Decode per_air data
-    let per_air = decode_vec(reader)?;
-
-    // Decode RAP phase sequence kind
-    let mut kind_byte = [0u8; 1];
-    reader.read_exact(&mut kind_byte)?;
-    if kind_byte[0] != RapPhaseSeqKind::FriLogUp as u8 {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            format!("Unknown RapPhaseSeqKind: {}", kind_byte[0]),
-        ));
+impl Decode for UserPublicValuesProof<DIGEST_SIZE, F> {
+    fn decode<R: Read>(reader: &mut R) -> Result<Self> {
+        let proof = decode_vec(reader)?;
+        let public_values = decode_vec(reader)?;
+        let public_values_commit = <[F; DIGEST_SIZE]>::decode(reader)?;
+        Ok(Self {
+            proof,
+            public_values,
+            public_values_commit,
+        })
     }
+}
 
-    // Decode logup witness
-    let rap_phase_seq_proof = Option::<FriLogUpPartialProof<F>>::decode(reader)?;
+impl Decode for RootVmVerifierInput<SC> {
+    fn decode<R: Read>(reader: &mut R) -> Result<Self> {
+        let proofs = decode_vec(reader)?;
+        let public_values = decode_vec(reader)?;
+        Ok(Self {
+            proofs,
+            public_values,
+        })
+    }
+}
 
-    Ok(Proof {
-        commitments,
-        opening,
-        per_air,
-        rap_phase_seq_proof,
-    })
+impl Decode for Proof<SC> {
+    /// Decode a proof using FRI as the PCS with `BabyBearPoseidon2Config`.
+    fn decode<R: Read>(reader: &mut R) -> Result<Self> {
+        let mut version_bytes = [0u8; 4];
+        reader.read_exact(&mut version_bytes)?;
+        let version = u32::from_le_bytes(version_bytes);
+
+        if version != CODEC_VERSION {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!(
+                    "Invalid codec version. Expected {}, got {}",
+                    CODEC_VERSION, version
+                ),
+            ));
+        }
+
+        // Decode commitments
+        let main_trace = decode_commitments(reader)?;
+        let after_challenge = decode_commitments(reader)?;
+        let quotient = decode_commitment(reader)?;
+
+        let commitments = Commitments {
+            main_trace,
+            after_challenge,
+            quotient,
+        };
+
+        // Decode OpeningProof
+        let opening = decode_opening_proof(reader)?;
+
+        // Decode per_air data
+        let per_air = decode_vec(reader)?;
+
+        // Decode RAP phase sequence kind
+        let mut kind_byte = [0u8; 1];
+        reader.read_exact(&mut kind_byte)?;
+        if kind_byte[0] != RapPhaseSeqKind::FriLogUp as u8 {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("Unknown RapPhaseSeqKind: {}", kind_byte[0]),
+            ));
+        }
+
+        // Decode logup witness
+        let rap_phase_seq_proof = Option::<FriLogUpPartialProof<F>>::decode(reader)?;
+
+        Ok(Proof {
+            commitments,
+            opening,
+            per_air,
+            rap_phase_seq_proof,
+        })
+    }
 }
 
 fn decode_commitment<R: Read>(reader: &mut R) -> Result<Com<SC>> {
