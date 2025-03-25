@@ -1,4 +1,4 @@
-use std::{fs::read, path::Path, sync::Arc};
+use std::{fs::read, marker::PhantomData, path::Path, sync::Arc};
 
 use commit::commit_app_exe;
 use config::AppConfig;
@@ -28,7 +28,7 @@ use openvm_native_recursion::halo2::{
     wrapper::{EvmVerifier, Halo2WrapperProvingKey},
     RawEvmProof,
 };
-use openvm_stark_backend::{engine::StarkEngine, proof::Proof};
+use openvm_stark_backend::proof::Proof;
 use openvm_stark_sdk::{
     config::{baby_bear_poseidon2::BabyBearPoseidon2Engine, FriParameters},
     engine::StarkFriEngine,
@@ -77,9 +77,25 @@ pub struct VerifiedContinuationVmPayload {
     pub user_public_values: Vec<F>,
 }
 
-pub struct Sdk;
+pub struct GenericSdk<E: StarkFriEngine<SC>> {
+    _phantom: PhantomData<E>,
+}
 
-impl Sdk {
+impl<E: StarkFriEngine<SC>> Default for GenericSdk<E> {
+    fn default() -> Self {
+        Self {
+            _phantom: PhantomData,
+        }
+    }
+}
+
+pub type Sdk = GenericSdk<BabyBearPoseidon2Engine>;
+
+impl<E: StarkFriEngine<SC>> GenericSdk<E> {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     pub fn build<P: AsRef<Path>>(
         &self,
         guest_opts: GuestOptions,
@@ -178,7 +194,7 @@ impl Sdk {
         app_vk: &AppVerifyingKey,
         proof: &ContinuationVmProof<SC>,
     ) -> Result<VerifiedContinuationVmPayload, VmVerificationError> {
-        let engine = BabyBearPoseidon2Engine::new(app_vk.fri_params);
+        let engine = E::new(app_vk.fri_params);
         let VerifiedExecutionPayload {
             exe_commit,
             final_memory_root,
@@ -200,7 +216,7 @@ impl Sdk {
         app_vk: &AppVerifyingKey,
         proof: &Proof<SC>,
     ) -> Result<(), VerificationError> {
-        let e = BabyBearPoseidon2Engine::new(app_vk.fri_params);
+        let e = E::new(app_vk.fri_params);
         e.verify(&app_vk.app_vm_vk, proof)
     }
 
