@@ -1,4 +1,4 @@
-use std::{fs::read, path::PathBuf};
+use std::{fs::read, path::PathBuf, sync::Arc};
 
 use clap::{command, Parser};
 use eyre::Result;
@@ -78,9 +78,11 @@ impl BenchmarkCli {
 
         app_vm_config.system_mut().profiling = self.profiling;
         if let Some(max_segment_length) = self.max_segment_length {
-            app_vm_config.system_mut().set_segmentation_strategy(
-                DefaultSegmentationStrategy::new_with_max_segment_len(max_segment_length),
-            );
+            app_vm_config
+                .system_mut()
+                .set_segmentation_strategy(Arc::new(
+                    DefaultSegmentationStrategy::new_with_max_segment_len(max_segment_length),
+                ));
         }
         AppConfig {
             app_fri_params: FriParameters::standard_with_100_bits_conjectured_security(

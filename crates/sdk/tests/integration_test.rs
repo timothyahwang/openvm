@@ -4,7 +4,7 @@ use openvm_build::GuestOptions;
 use openvm_circuit::{
     arch::{
         hasher::poseidon2::vm_poseidon2_hasher, ContinuationVmProof, ExecutionError,
-        SingleSegmentVmExecutor, SystemConfig, VmConfig, VmExecutor,
+        GenerationError, SingleSegmentVmExecutor, SystemConfig, VmConfig, VmExecutor,
     },
     system::{memory::tree::public_values::UserPublicValuesProof, program::trace::VmCommittedExe},
 };
@@ -31,10 +31,11 @@ use openvm_sdk::{
     keygen::AppProvingKey,
     DefaultStaticVerifierPvHandler, Sdk, StdIn,
 };
+use openvm_stark_backend::{keygen::types::LinearConstraint, p3_matrix::Matrix};
 use openvm_stark_sdk::{
     config::{
         baby_bear_poseidon2::{BabyBearPoseidon2Config, BabyBearPoseidon2Engine},
-        FriParameters,
+        setup_tracing, FriParameters,
     },
     engine::{StarkEngine, StarkFriEngine},
     openvm_stark_backend::{p3_field::FieldAlgebra, Chip},
@@ -440,4 +441,60 @@ fn test_inner_proof_codec_roundtrip() -> eyre::Result<()> {
     // Test the decoding by verifying the decoded proof
     sdk.verify_app_proof(&app_pk.get_app_vk(), &decoded_app_proof)?;
     Ok(())
+}
+
+#[test]
+fn test_segmentation_retry() {
+    setup_tracing();
+    let app_log_blowup = 3;
+    let app_config = small_test_app_config(app_log_blowup);
+    let app_pk = AppProvingKey::keygen(app_config);
+    let app_committed_exe = app_committed_exe_for_test(app_log_blowup);
+
+    let app_vm = VmExecutor::new(app_pk.app_vm_pk.vm_config.clone());
+    let app_vm_result = app_vm
+        .execute_and_generate_with_cached_program(app_committed_exe.clone(), vec![])
+        .unwrap();
+    assert!(app_vm_result.per_segment.len() > 2);
+
+    let total_height: usize = app_vm_result.per_segment[0]
+        .per_air
+        .iter()
+        .map(|(_, input)| {
+            let main = input.raw.common_main.as_ref();
+            main.map(|mat| mat.height()).unwrap_or(0)
+        })
+        .sum();
+
+    // Re-run with a threshold that will be violated.
+    let mut app_vm = VmExecutor::new(app_pk.app_vm_pk.vm_config.clone());
+    let num_airs = app_pk.app_vm_pk.vm_pk.per_air.len();
+    app_vm.set_trace_height_constraints(vec![LinearConstraint {
+        coefficients: vec![1; num_airs],
+        threshold: total_height as u32 - 1,
+    }]);
+    let app_vm_result =
+        app_vm.execute_and_generate_with_cached_program(app_committed_exe.clone(), vec![]);
+    assert!(matches!(
+        app_vm_result,
+        Err(GenerationError::TraceHeightsLimitExceeded)
+    ));
+
+    // Try lowering segmentation threshold.
+    let config = VmConfig::<BabyBear>::system_mut(&mut app_vm.config);
+    config.set_segmentation_strategy(config.segmentation_strategy.stricter_strategy());
+    let app_vm_result = app_vm
+        .execute_and_generate_with_cached_program(app_committed_exe.clone(), vec![])
+        .unwrap();
+
+    // New max height should indeed by smaller.
+    let new_total_height: usize = app_vm_result.per_segment[0]
+        .per_air
+        .iter()
+        .map(|(_, input)| {
+            let main = input.raw.common_main.as_ref();
+            main.map(|mat| mat.height()).unwrap_or(0)
+        })
+        .sum();
+    assert!(new_total_height < total_height);
 }
