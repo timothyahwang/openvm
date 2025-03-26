@@ -31,7 +31,7 @@ jobs:
     steps:
       - uses: runs-on/action@v1
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@nightly
+      - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
@@ -41,7 +41,7 @@ jobs:
 
       - name: Install tools
         run: |
-          rustup component add rust-src --toolchain nightly-2024-10-30
+          rustup component add rust-src --toolchain nightly-2025-02-14
 
       - name: Install cargo-openvm
         working-directory: crates/cli
