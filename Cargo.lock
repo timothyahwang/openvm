@@ -4224,6 +4224,7 @@ dependencies = [
  "openvm-bigint-circuit",
  "openvm-build",
  "openvm-circuit",
+ "openvm-circuit-primitives-derive",
  "openvm-ecc-guest",
  "openvm-instructions",
  "openvm-platform",
