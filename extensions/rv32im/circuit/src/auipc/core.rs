@@ -130,8 +130,10 @@ where
         }
 
         assert_eq!(pc_limbs.len(), RV32_REGISTER_NUM_LIMBS);
-        // pc_limbs[0] is already range checked through rd_data[0]
+        // use enumerate to match pc_limbs[0] => i = 0, pc_limbs[1] => i = 1, ...
+        // pc_limbs[0] is already range checked through rd_data[0], so we skip it
         for (i, limb) in pc_limbs.iter().enumerate().skip(1) {
+            // the most significant limb is pc_limbs[3] => i = 3
             if i == pc_limbs.len() - 1 {
                 // Range check the most significant limb of pc to be in [0, 2^{PC_BITS-(RV32_REGISTER_NUM_LIMBS-1)*RV32_CELL_BITS})
                 need_range_check.push(
