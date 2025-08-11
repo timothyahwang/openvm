@@ -30,6 +30,10 @@ pub fn read<T: DeserializeOwned>() -> T {
     T::deserialize(&mut deserializer).unwrap()
 }
 
+pub fn foo() {
+    let reader = read::Reader::new();
+}
+
 /// Read the next 4 bytes from the hint stream into a register.
 /// Because [hint_store_u32] stores a word to memory, this function first reads to memory and then
 /// loads from memory to register.
