@@ -82,14 +82,14 @@ pub fn hint_input() {
 
 /// Read the next `n` bytes from the hint stream.
 pub fn read_n_bytes(_n: usize) -> Vec<u8> {
-    #[cfg(feature = "std")]
+    // #[cfg(feature = "std")]
     {
         HINT_STREAM.with_borrow_mut(|stream| stream.drain(.._n).collect())
     }
-    #[cfg(not(feature = "std"))]
-    {
-        unimplemented!("hint_stream not supported on no_std host")
-    }
+    // #[cfg(not(feature = "std"))]
+    // {
+    //     unimplemented!("hint_stream not supported on no_std host")
+    // }
 }
 
 /// Read the next 4 bytes from the hint stream as a `u32`.
