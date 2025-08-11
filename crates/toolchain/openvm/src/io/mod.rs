@@ -34,7 +34,8 @@ pub fn foo() {
     // let reader = read::Reader::new();
     hint_input();
     // let bytes_remaining = read_u32() as usize;
-    let bytes: Vec<u8> = read_n_bytes(4);
+    // let bytes: Vec<u8> = read_n_bytes(4);
+
 
 }
 
