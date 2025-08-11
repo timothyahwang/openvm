@@ -95,7 +95,8 @@ pub fn read_n_bytes(_n: usize) -> Vec<u8> {
 /// Read the next 4 bytes from the hint stream as a `u32`.
 pub fn read_u32() -> u32 {
     let bytes: Vec<u8> = read_n_bytes(4);
-    u32::from_le_bytes(bytes.try_into().unwrap())
+    // u32::from_le_bytes(bytes.try_into().unwrap())
+    123
 }
 
 #[cfg(all(feature = "std", test, not(target_os = "zkvm")))]
