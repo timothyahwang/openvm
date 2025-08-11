@@ -31,7 +31,8 @@ pub fn read<T: DeserializeOwned>() -> T {
 }
 
 pub fn foo() {
-    let reader = read::Reader::new();
+    // let reader = read::Reader::new();
+    hint_input();
 }
 
 /// Read the next 4 bytes from the hint stream into a register.
